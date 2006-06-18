@@ -105,35 +105,137 @@ class DBResult
 };
 
 
-class EditView
-{
-    var $conn;
-};
-
-class PhpTableau
+class TableEdit
 {
     var $conn;
     var $columns;
-    
-    function PhpTableau($connection, $table_name, $encoding) {
-        $this->conn = new DBTable($connection, $table_name, $encoding);
-        $this->columns = array();
-    }
 
-    function set_columns($columns) {
+    function TableEdit($conn, &$columns) {
+        $this->conn = $conn;
         $this->columns = $columns;
     }
 
-    function set_editable($column_names, $editable = true) {
-        foreach ($this->columns as $name => $value) {
-            $value->editable = $editable;
+    function get_edit_form($row) {
+        $output .= "<table>";
+        foreach ($this->columns as $field_name => $column) {
+            $output .= "<tr>";
+            $output .= "<td>{$column->name}</td>\n";
+            
+            $value = $row[$field_name];
+            if ($column->editable and $column->editor) {
+                $disp = $column->editor->get_form("edit_$field_name", $value);
+                $output .= "<td>{$disp}</td>\n";
+            } else {
+                $output .= "<td>{$column->display->get($value)}</td>";
+            }
+            if ($column->comment) {
+                $output .= "<td>{$column->comment}</td>";
+            }
+            $output .= "</tr>";
         }
+        $output .= "</table>";
+        return $output;
     }
 
-    function set_visible($column_names, $visible = true) {
-        foreach ($this->columns as $name => $value) {
-            $value->visible = $visible;
+    function action_input($entry_key) {
+        $query = sprintf("SELECT * FROM {$this->conn->table_name} WHERE {$this->conn->primary_key} = '%s';", $this->conn->escape($entry_key));
+        $result = $this->conn->query($query);
+
+        $values = $result->fetch_assoc();
+
+        $output = "";
+        $output .= "<form method='post'>";
+        $output .= $this->get_edit_form($values);
+        if ($values) {
+            $output .= "<input type='submit' name='submit' value='update'>";
+            $output .= "<input type='submit' name='submit' value='delete'>";
+            $output .= "</form>";
+        } else {
+            $output .= "<input type='submit' name='submit' value='insert'>";
+            $output .= "</form>";
         }
+
+        print $output;
+    }
+
+    function get_input_values() {
+        $values = array();
+        foreach ($this->columns as $field_name => $column) {
+            if ($column->editable and $column->editor) {
+                $values[$field_name] = $column->editor->get_value("edit_$field_name");
+                if (!$column->validate_value($values[$field_name], $msg)) {
+                    die("Invalid value '{$values[$field_name]}' for {$field_name}: {$msg}");
+                }
+            }
+        }
+        return $values;
+    }
+
+    function action_update($entry_key) {
+        $values = $this->get_input_values();
+        $selection = "{$this->conn->primary_key} = '{$this->conn->escape($entry_key)}'";
+        $assign = array();
+        foreach ($values as $key => $value) {
+            $assign[] = "$key = '{$this->conn->escape($value)}'";
+        }
+        $values[] = $selection;
+        $query = "UPDATE {$this->conn->table_name} SET " . join(", ", $assign) . " WHERE $selection;";
+        $result = $this->conn->query($query);
+        print "UPDATE";
+        
+
+    }
+
+    function action_delete($entry_key) {
+        print "DELETE";
+        $selection = "{$this->conn->primary_key} = '{$this->conn->escape($entry_key)}'";
+        $query = "DELETE FROM {$this->conn->table_name} WHERE $selection;";
+        $result = $this->conn->query($query);
+        print "DELETE";
+    }
+
+    function action_insert($entry_key) {
+        $values = $this->get_input_values();
+        $fields = array();
+        $field_values = array();
+        foreach ($this->columns as $field_name => $column) {
+            if ($column->editable and $column->editor) {
+                $fields[] = $field_name;
+                $field_values[] = "'{$this->conn->escape($column->editor->get_value("edit_$field_name"))}'";;
+            }
+        }
+        
+        $query = "INSERT INTO {$this->conn->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $field_values) . ");";
+        $result = $this->conn->query($query);
+        print "INSERT";
+    }
+    
+    function display() {
+        $entry_key = $_GET['id'];
+        switch ($_POST['submit']) {
+        case 'update':
+            $this->action_update($entry_key);
+            break;
+        case 'delete':
+            $this->action_delete($entry_key);
+            break;
+        case 'insert':
+            $this->action_insert($entry_key);
+            break;
+        default:
+            $this->action_input($entry_key);
+        };
+    }
+};
+
+class TableView
+{
+    var $conn;
+    var $columns;
+
+    function TableView($conn, &$columns) {
+        $this->conn = $conn;
+        $this->columns = $columns;
     }
 
     function get_table_view() {
@@ -177,110 +279,35 @@ class PhpTableau
         return $output;
     }
 
-    function action_view() {
+    function display() {
         print $this->get_table_view();
     }
+};
 
-    function get_edit_form($row) {
-        $output .= "<table>";
-        foreach ($this->columns as $field_name => $column) {
-            $output .= "<tr>";
-            $output .= "<td>{$column->name}</td>\n";
-            
-            $value = $row[$field_name];
-            if ($column->editable and $column->editor) {
-                $disp = $column->editor->get_form("edit_$field_name", $value);
-                $output .= "<td>{$disp}</td>\n";
-            } else {
-                $output .= "<td>{$column->display->get($value)}</td>";
-            }
-            if ($column->comment) {
-                $output .= "<td>{$column->comment}</td>";
-            }
-            $output .= "</tr>";
-        }
-        $output .= "</table>";
-        return $output;
-    }
-
-    function action_edit_input() {
-        $entry_key = $_GET['id'];
-        $query = sprintf("SELECT * FROM {$this->conn->table_name} WHERE {$this->conn->primary_key} = '%s';", $this->conn->escape($entry_key));
-        $result = $this->conn->query($query);
-
-        $values = $result->fetch_assoc();
-
-        $output = "";
-        $output .= "<form method='post'>";
-        $output .= $this->get_edit_form($values);
-        if ($values) {
-            $output .= "<input type='submit' name='submit' value='update'>";
-            $output .= "<input type='submit' name='submit' value='delete'>";
-            $output .= "</form>";
-        } else {
-            $output .= "<input type='submit' name='submit' value='insert'>";
-            $output .= "</form>";
-        }
-
-        print $output;
-    }
-
-    function action_edit_update() {
-        $entry_key = $_GET['id'];
-        $values = array();
-        foreach ($this->columns as $field_name => $column) {
-            if ($column->editable and $column->editor) {
-                $values[] = "$field_name = '" . $this->conn->escape($column->editor->get_value("edit_$field_name")) . "'";;
-            }
-        }
-        $selection = "{$this->conn->primary_key} = '{$this->conn->escape($entry_key)}'";
-        $values[] = $selection;
-        $query = "UPDATE {$this->conn->table_name} SET " . join(", ", $values) . " WHERE $selection;";
-        $result = $this->conn->query($query);
-        print "UPDATE";
-        
-
-    }
-
-    function action_edit_delete() {
-        print "DELETE";
-        $entry_key = $_GET['id'];
-        $selection = "{$this->conn->primary_key} = '{$this->conn->escape($entry_key)}'";
-        $query = "DELETE FROM {$this->conn->table_name} WHERE $selection;";
-        $result = $this->conn->query($query);
-        print "DELETE";
-    }
-
-    function action_edit_insert() {
-        $entry_key = $_GET['id'];
-        $fields = array();
-        $values = array();
-        foreach ($this->columns as $field_name => $column) {
-            if ($column->editable and $column->editor) {
-                $fields[] = $field_name;
-                $values[] = "'" . $this->conn->escape($column->editor->get_value("edit_$field_name")) . "'";;
-            }
-        }
-        
-        $query = "INSERT INTO {$this->conn->table_name} (" . join(",",$fields) . ") VALUES (" . join(",", $values) . ");";
-        $result = $this->conn->query($query);
-        print "INSERT";
-    }
+class PhpTableau
+{
+    var $conn;
+    var $columns;
     
-    function action_edit() {
-        switch ($_POST['submit']) {
-        case 'update':
-            $this->action_edit_update();
-            break;
-        case 'delete':
-            $this->action_edit_delete();
-            break;
-        case 'insert':
-            $this->action_edit_insert();
-            break;
-        default:
-            $this->action_edit_input();
-        };
+    function PhpTableau($connection, $table_name, $encoding) {
+        $this->conn = new DBTable($connection, $table_name, $encoding);
+        $this->columns = array();
+    }
+
+    function set_columns($columns) {
+        $this->columns = $columns;
+    }
+
+    function set_editable($column_names, $editable = true) {
+        foreach ($this->columns as $name => $value) {
+            $value->editable = $editable;
+        }
+    }
+
+    function set_visible($column_names, $visible = true) {
+        foreach ($this->columns as $name => $value) {
+            $value->visible = $visible;
+        }
     }
 
     function display() {
@@ -305,10 +332,12 @@ class PhpTableau
         switch ($_GET['action']) {
         case null:
         case 'view':
-            $this->action_view();
+            $view = new TableView($this->conn, $this->columns);
+            $view->display();
             break;
         case 'edit':
-            $this->action_edit();
+            $view = new TableEdit($this->conn, $this->columns);
+            $view->display();
             break;
         }
     }
