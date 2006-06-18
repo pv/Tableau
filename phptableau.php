@@ -34,8 +34,6 @@ class Column
         $this->validators = $validators;
     }
 
-    function prepare() {}
-
     function add_validator($validator) {
         $this->validators[] = $validator;
     }
@@ -62,14 +60,12 @@ class DBTable
 {
     var $connection;
     var $table_name;
-    var $encoding;
     var $primary_key;
     var $fields;
 
-    function DBTable($connection, $table_name, $encoding) {
+    function DBTable($connection, $table_name) {
         $this->connection = $connection;
         $this->table_name = $table_name;
-        $this->encoding = $encoding;
         $this->scan_table_structure();
     }
 
@@ -434,7 +430,8 @@ class TableEdit
             $selection = $this->conn->key_is($row[$this->conn->primary_key]);
 
             print "<p>Inserted a row successfully:</p>";
-            $view = new TableView($this->conn, $this->columns);
+            $view = new TableView($this->conn, $this->columns,
+                                  $this->callback);
             $view->filter = "WHERE $selection";
             print $view->get_table_view();
         } else {
@@ -577,8 +574,8 @@ class PhpTableau
     var $columns;
     var $callback;
     
-    function PhpTableau($connection, $table_name, $encoding) {
-        $this->conn = new DBTable($connection, $table_name, $encoding);
+    function PhpTableau($connection, $table_name) {
+        $this->conn = new DBTable($connection, $table_name);
         $this->columns = array();
         $this->callback = new Callback($columns);
     }
@@ -709,12 +706,20 @@ function parse_datetime($string) {
 }
 
 function format_date($ar) {
-    return sprintf("%04d-%02d-%02d", $ar[0], $ar[1], $ar[2]);
+    if ($ar[0] != null and $ar[1] != null and $ar[2] != null) {
+        return sprintf("%04d-%02d-%02d", $ar[0], $ar[1], $ar[2]);
+    } else {
+        return null;
+    }
 }
 
 function format_datetime($ar) {
-    return format_date($ar) . sprintf(" %02d:%02d:%02d",
-                                      $ar[3], $ar[4], $ar[5]);
+    $date = format_date($ar);
+    if ($ar[3] != null and $ar[4] != null and $ar[5] != null) {
+        return $date . sprintf(" %02d:%02d:%02d", $ar[3], $ar[4], $ar[5]);
+    } else {
+        return $date;
+    }
 }
 
 function create_select_form($name, $is_map, $values, $options, $selected) {
@@ -875,5 +880,106 @@ class IDColumn extends TextColumn
         TextColumn::TextColumn($name, $comment);
         $this->editor = null;
         $this->display = new IDDisplay();
+    }
+};
+
+
+/*****************************************************************************
+ * Choice columns
+ */
+
+class ChoiceEditor extends Editor
+{
+    var $choices;
+    var $is_map;
+    
+    function ChoiceEditor($choices, $is_map = false) {
+        $this->choices = $choices;
+        $this->is_map = false;
+    }
+
+    function get_form($prefix, $value) {
+        return create_select_form("{$prefix}_choice",
+                                  $this->is_map, $this->choices,
+                                  "", $value);
+    }
+
+    function get_value($prefix) {
+        return $_POST["{$prefix}_choice"];
+    }
+};
+
+class ChoiceDisplay extends Display
+{
+    var $choices;
+    var $is_map;
+
+    function ChoiceDisplay($choices, $is_map) {
+        $this->choices = $choices;
+        $this->is_map = $is_map;
+    }
+    
+    function get($value) {
+        if ($is_map) {
+            return $choices[$value];
+        } else {
+            return $value;
+        }
+    }
+};
+
+class ChoiceColumn extends TextColumn
+{
+    function ChoiceColumn($name, $choices, $is_map = false, $comment="") {
+        TextColumn::TextColumn($name, $comment);
+        $this->editor = new ChoiceEditor($choices, $is_map);
+        $this->display = new ChoiceDisplay($choices, $is_map);
+    }
+
+    function set_choices($choices, $is_map=false) {
+        $this->editor->choices = $choices;
+        $this->editor->is_map = $is_map;
+        $this->display->choices = $choices;
+        $this->display->is_map = $is_map;
+    }
+};
+
+/*****************************************************************************
+ * Foreign key columns
+ */
+
+class ForeignKeyColumn extends ChoiceColumn
+{
+    function ForeignKeyColumn($name, $connection, $table,
+                              $key_field, $value_field, $query='') {
+        $choices = $this->get_choices($connection, $table, $key_field,
+                                      $value_field, $query);
+        ChoiceColumn::ChoiceColumn($name, $choices,
+                                   $key_field != $value_field);
+    }
+
+    function get_choices($connection, $table, $key_field, $value_field,
+                         $query='') {
+        $db = new DBTable($connection, $table);
+
+        if (!$query) {
+            $query = "SELECT {$key_field}, {$value_field} FROM {$table};";
+        }
+
+        $result = $db->query($query);
+        if ($result->error) die($result->error);
+        
+        $choices = array();
+        if ($key_field != $value_field) {
+            while ($row = $result->fetch_assoc()) {
+                $choices[$row[$key_field]] =
+                    $row[$value_field] . " ($row[$key_field])";
+            }
+        } else {
+            while ($row = $result->fetch_assoc()) {
+                $choices[] = $row[$key_field];
+            }
+        }
+        return $choices;
     }
 };
