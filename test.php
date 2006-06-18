@@ -10,13 +10,25 @@ $db_database = 'test';
 $connection = mysql_connect($db_host,$db_user,$db_password);
 mysql_select_db($db_database) or die("Unable to select database");
 
-$tableau = new PhpTableau($connection, 'fubar', "utf-8");
+$tableau = new PhpTableau($connection, 'fubar');
 
-$columns = array(
-    'id'       => new IDColumn("ID", "Identifier"),
-    'fubar'    => new TextColumn("Fubar", "Fubar for all interested"),
-    'darkness' => new DateTimeColumn("Darkness", "Darkness unless finished"),
-    'saab'     => new TextColumn("Saab", "Saab for the German"),
+$tableau->set_columns(
+    'id',       new IDColumn(),
+    'fubar',    new ChoiceColumn(array('a', 'b', 'c')),
+    'darkness', new DateTimeColumn(),
+    'saab',     new ForeignKeyColumn($connection, 'fubar', 'fubar', 'saab')
+    );
+$tableau->set_name(
+    'id', "ID",
+    'fubar', "FUBAR",
+    'darkness', "DARKNESS",
+    'saab', "Saab"
+    );
+$tableau->set_comment(
+    'id', "Identifier",
+    'fubar', "Fubar of foo",
+    'darkness', "FOO",
+    'saab', "FOO"
     );
 
 function validate_fubar($value, &$msg) {
@@ -34,9 +46,7 @@ function color_display($row, $field, &$disp, &$cell_attr) {
     }
 }
 
-$columns['fubar']->add_validator(validate_fubar);
-
+$tableau->add_validator('fubar', validate_fubar);
 $tableau->add_callback('display', color_display);
 
-$tableau->set_columns($columns);
 $tableau->display();

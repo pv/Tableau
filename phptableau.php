@@ -1,20 +1,30 @@
 <? # -*-php-*-
 
-/*****************************************************************************
- * Table columns (abstract)
- */
 
+//---------------------------------------------------------------------------//
+// Abstract base for table cell renderers and editors & columns              //
+//---------------------------------------------------------------------------//
+
+/**
+ * Base class for editors
+ */
 class Editor
 {
     function get_form($prefix, $value) {}
     function get_value($prefix) {}
 };
 
+/**
+ * Base class for cell displays
+ */
 class Display
 {
     function get($value) {}
 };
 
+/**
+ * Base class for columns
+ */
 class Column
 {
     var $visible;
@@ -26,12 +36,12 @@ class Column
     var $name;
     var $default;
     
-    function Column($name, $comment, $visible, $editable, $validators) {
-        $this->name = $name;
-        $this->comment = $comment;
-        $this->visible = $visible;
-        $this->editable = $editable;
-        $this->validators = $validators;
+    function Column() {
+        $this->name = null;
+        $this->comment = null;
+        $this->visible = true;
+        $this->editable = true;
+        $this->validators = array();
     }
 
     function add_validator($validator) {
@@ -52,10 +62,14 @@ class Column
     }
 };
 
-/*****************************************************************************
- * DB interface
- */
 
+//---------------------------------------------------------------------------//
+// Simple DB interface                                                       //
+//---------------------------------------------------------------------------//
+
+/**
+ * Simple database table interface
+ */
 class DBTable
 {
     var $connection;
@@ -144,6 +158,9 @@ class DBTable
     }
 };
 
+/**
+ * Simple database query result interface
+ */
 class DBResult
 {
     var $result;
@@ -161,10 +178,13 @@ class DBResult
 };
 
 
-/*****************************************************************************
- * Controller
- */
+//---------------------------------------------------------------------------//
+// Callback handler                                                          //
+//---------------------------------------------------------------------------//
 
+/**
+ * Callback list
+ */
 class Callback
 {
     var $before_change_callbacks;
@@ -235,6 +255,9 @@ class Callback
     }
 };
 
+/**
+ * Format a table cell, calling all callbacks and applying attributes
+ */
 function do_format_cell($callback, $row, $field_name, $value) {
     $cell_attr = array();
     $disp = $callback->before_display($row, $field_name, $value, $cell_attr);
@@ -245,6 +268,14 @@ function do_format_cell($callback, $row, $field_name, $value) {
     return "<td$attr>$disp</td>\n";
  }
 
+
+//---------------------------------------------------------------------------//
+// Record editor                                                             //
+//---------------------------------------------------------------------------//
+
+/**
+ * Table editor class: editing single rows.
+ */
 class TableEdit
 {
     var $conn;
@@ -257,6 +288,10 @@ class TableEdit
         $this->callback = $callback;
     }
 
+    /**
+     * Generate an edit form.
+     * @returns string containing form elements in a <table>
+     */
     function get_edit_form($row, $hilight = false, $fill_defaults = false) {
         $output .= "<table>";
         foreach ($this->columns as $field_name => $column) {
@@ -288,6 +323,9 @@ class TableEdit
         return $output;
     }
 
+    /**
+     * Show the edit/insert form
+     */
     function action_input($entry_key, $row=null, $hilight=array()) {
         if (!$row and $entry_key) {
             $result = $this->conn->select(
@@ -310,6 +348,9 @@ class TableEdit
         print $output;
     }
 
+    /**
+     * Get form input from _POST
+     */
     function get_input_row() {
         $row = array();
         foreach ($this->columns as $field_name => $column) {
@@ -335,6 +376,10 @@ class TableEdit
         return true;
     }
 
+    /**
+     * Call all 'before_delete' callbacks, including column data validation.
+     * Print error messages and the input form if fails.
+     */
     function action_validate_delete($row) {
         if (!$this->callback->before_delete($row, $errors)) {
             $hilight = $this->display_errors("Failed to delete a row:", $errors);
@@ -344,6 +389,10 @@ class TableEdit
         return true;
     }
 
+    /**
+     * Return a array(null => error_message, key1 => failed, ...)
+     * representing what failed.
+     */
     function display_errors($msg, $errors) {
         if (count($errors) == 0) return;
         $output = "<p>$msg</span><ul>\n";
@@ -359,9 +408,10 @@ class TableEdit
         return $hilight;
     }
 
-    
     /**
      * Try to update the row with the values found in _POST.
+     * On success, print message.
+     * On failure, reprint input form with error messages.
      */
     function action_update($entry_key) {
         $row = $this->get_input_row();
@@ -388,7 +438,9 @@ class TableEdit
     }
 
     /**
-     * Try to delete the row.
+     * Try to delete the indicated row.
+     * On success, print message.
+     * On failure, reprint input form with error messages.
      */
     function action_delete($entry_key) {
         $selection = $this->conn->key_is($entry_key);
@@ -413,7 +465,9 @@ class TableEdit
     }
 
     /**
-     * Try to insert a new row with the values found in _POST.
+     * Try to insert a new row, using values found from _POST.
+     * On success, print message.
+     * On failure, reprint input form with error messages.
      */
     function action_insert($entry_key) {
         $row = $this->get_input_row();
@@ -440,6 +494,9 @@ class TableEdit
         }
     }
     
+    /**
+     * Entry point.
+     */
     function display() {
         $entry_key = $_GET['id'];
         switch ($_POST['submit']) {
@@ -458,14 +515,26 @@ class TableEdit
     }
 };
 
+
+//---------------------------------------------------------------------------//
+// Table viewer                                                              //
+//---------------------------------------------------------------------------//
+
+/**
+ * Display a table.
+ */
 class TableView
 {
     var $conn;
     var $columns;
-    var $filter;
     var $callback;
-    var $sort;
-    var $searches;
+
+    var $filter_sql;
+    var $filters;
+
+    var $sort_field;
+    var $sort_dir;
+    var $sort_sql;
 
     function TableView($conn, &$columns, &$callback) {
         $this->conn = $conn;
@@ -475,6 +544,10 @@ class TableView
         $this->get_filter();
     }
 
+    /**
+     * Formulate an ORDER BY statement based on _GET information.
+     * Also stuff the sort data.
+     */
     function get_sort() {
         $field = $_GET['sort_field'];
         if (!in_array($field, $this->conn->fields)) {
@@ -490,12 +563,18 @@ class TableView
         if (!$dir) $dir = "ASC";
 
         if ($field and $dir) {
+            $this->sort_field = $field;
+            $this->sort_dir = $dir;
             $this->sort = "ORDER BY {$field} $dir";
         }
     }
 
+    /**
+     * Formulate a WHERE statement based on _GET information.
+     * Also stuff the filter data.
+     */
     function get_filter() {
-        $this->searches = array();
+        $this->filters = array();
         $searches = array();
         foreach ($_GET as $key => $value) {
             if (preg_match('/^search_([0-9]+)$/', $key) and
@@ -510,7 +589,7 @@ class TableView
                                 $matches[2],
                                 $matches[3]);
                 
-                $this->searches[] = $search;
+                $this->filters[] = $search;
 
                 $searches[] = $this->conn->escape($matches[1]) . " "
                     . $matches[2] . " '" . $this->conn->escape($matches[3])
@@ -519,12 +598,15 @@ class TableView
         }
         if (!$searches) return;
         if ($_GET['search_or']) {
-            $this->filter = "WHERE " . join(" OR ", $searches);
+            $this->filter_sql = "WHERE " . join(" OR ", $searches);
         } else {
-            $this->filter = "WHERE " . join(" AND ", $searches);
+            $this->filter_sql = "WHERE " . join(" AND ", $searches);
         }
     }
-    
+
+    /**
+     * Return a view of the table, using the current sort+filter settings.
+     */
     function get_table_view() {
         $query = "SELECT * FROM {$this->conn->table_name} {$this->filter} {$this->sort};";
         $result = $this->conn->query($query);
@@ -563,11 +645,30 @@ class TableView
         return $output;
     }
 
+    /**
+     * Entry point. Display a table view, using the current settings.
+     */
     function display() {
         print $this->get_table_view();
     }
 };
 
+
+//---------------------------------------------------------------------------//
+// Programmer API & controller                                               //
+//---------------------------------------------------------------------------//
+
+function fold_list_to_map($list) {
+    $map = array();
+    for ($i = 0; $i < count($list); $i += 2) {
+        $map[$list[$i]] = $list[$i+1];
+    }
+    return $map;
+}
+
+/**
+ * Controller and API for the table editor.
+ */
 class PhpTableau
 {
     var $conn;
@@ -580,20 +681,48 @@ class PhpTableau
         $this->callback = new Callback($columns);
     }
 
-    function set_columns($columns) {
+    function set_columns() {
+        $columns = fold_list_to_map(func_get_args());
+        
+        foreach ($columns as $id => &$value) {
+            if (!$value->name) $value->name = $id;
+        }
         $this->columns = $columns;
         $this->callback->columns = $columns;
     }
 
-    function set_editable($column_names, $editable = true) {
-        foreach ($this->columns as $name => $value) {
-            $value->editable = $editable;
+    function set_editable() {
+        $status = fold_list_to_map(func_get_args());
+        foreach ($status as $key => $value) {
+            $this->columns[$key]->editable = $value;
         }
     }
 
-    function set_visible($column_names, $visible = true) {
-        foreach ($this->columns as $name => $value) {
-            $value->visible = $visible;
+    function set_visible() {
+        $status = fold_list_to_map(func_get_args());
+        foreach ($status as $key => $value) {
+            $this->columns[$key]->visible = $value;
+        }
+    }
+
+    function set_comment() {
+        $status = fold_list_to_map(func_get_args());
+        foreach ($status as $key => $value) {
+            $this->columns[$key]->comment = $value;
+        }
+    }
+
+    function set_name($status) {
+        $status = fold_list_to_map(func_get_args());
+        foreach ($status as $key => $value) {
+            $this->columns[$key]->name = $value;
+        }
+    }
+
+    function set_default($status) {
+        $status = fold_list_to_map(func_get_args());
+        foreach ($status as $key => $value) {
+            $this->columns[$key]->default = $value;
         }
     }
 
@@ -618,6 +747,10 @@ class PhpTableau
             die("$place is not a valid callback type.");
             break;
         }
+    }
+
+    function add_validator($field, $cb) {
+        $this->columns[$field]->add_validator($cb);
     }
 
     function display() {
@@ -655,9 +788,15 @@ class PhpTableau
     }
 };
 
-/*****************************************************************************
- * Text columns
- */
+
+//---------------------------------------------------------------------------//
+// Cell renderers and editors                                                //
+//---------------------------------------------------------------------------//
+
+
+//
+// --- Text columns ---------------------------------------------------------
+//
 
 class TextEditor extends Editor
 {
@@ -679,18 +818,17 @@ class TextDisplay extends Display
 
 class TextColumn extends Column
 {
-    function TextColumn($name, $comment="", $visible=true, $editable=true,
-                        $validators=array()) {
-        Column::Column($name, $comment, $visible, $editable, $validators);
+    function TextColumn() {
+        Column::Column();
         $this->editor = new TextEditor();
         $this->display = new TextDisplay();
     }
 };
 
 
-/*****************************************************************************
- * Date columns
- */
+//
+// --- Date columns ---------------------------------------------------------
+//
 
 function parse_date($string) {
     if (!$string) return array(null, null, null);
@@ -796,10 +934,8 @@ class DateEditor extends Editor
 
 class DateColumn extends TextColumn
 {
-    function DateColumn($name, $comment="", $visible=true, $editable=true,
-                        $validators=array()) {
-        TextColumn::TextColumn($name, $comment, $visible, $editable,
-                               $validators);
+    function DateColumn() {
+        TextColumn::TextColumn();
         $this->editor = new DateEditor();
         $this->display = new TextDisplay();
     }
@@ -849,19 +985,17 @@ class DateTimeEditor extends DateEditor
 
 class DateTimeColumn extends DateColumn
 {
-    function DateTimeColumn($name, $comment="",
-                            $visible=true, $editable=true,
-                            $validators=array()) {
-        TextColumn::TextColumn($name, $comment, $visible, $editable,
-                               $validators);
+    function DateTimeColumn() {
+        TextColumn::TextColumn();
         $this->editor = new DateTimeEditor();
         $this->display = new TextDisplay();
     }
 };
 
-/*****************************************************************************
- * ID columns
- */
+
+//
+// --- ID columns -----------------------------------------------------------
+//
 
 class IDDisplay extends TextDisplay
 {
@@ -876,17 +1010,17 @@ class IDDisplay extends TextDisplay
 
 class IDColumn extends TextColumn
 {
-    function IDColumn($name, $comment="") {
-        TextColumn::TextColumn($name, $comment);
+    function IDColumn() {
+        TextColumn::TextColumn();
         $this->editor = null;
         $this->display = new IDDisplay();
     }
 };
 
 
-/*****************************************************************************
- * Choice columns
- */
+//
+// --- Choice columns -------------------------------------------------------
+//
 
 class ChoiceEditor extends Editor
 {
@@ -930,8 +1064,8 @@ class ChoiceDisplay extends Display
 
 class ChoiceColumn extends TextColumn
 {
-    function ChoiceColumn($name, $choices, $is_map = false, $comment="") {
-        TextColumn::TextColumn($name, $comment);
+    function ChoiceColumn($choices, $is_map = false) {
+        TextColumn::TextColumn();
         $this->editor = new ChoiceEditor($choices, $is_map);
         $this->display = new ChoiceDisplay($choices, $is_map);
     }
@@ -944,18 +1078,18 @@ class ChoiceColumn extends TextColumn
     }
 };
 
-/*****************************************************************************
- * Foreign key columns
- */
+
+//
+// --- Foreign key columns -------------------------------------------------
+//
 
 class ForeignKeyColumn extends ChoiceColumn
 {
-    function ForeignKeyColumn($name, $connection, $table,
+    function ForeignKeyColumn($connection, $table,
                               $key_field, $value_field, $query='') {
         $choices = $this->get_choices($connection, $table, $key_field,
                                       $value_field, $query);
-        ChoiceColumn::ChoiceColumn($name, $choices,
-                                   $key_field != $value_field);
+        ChoiceColumn::ChoiceColumn($choices, $key_field != $value_field);
     }
 
     function get_choices($connection, $table, $key_field, $value_field,
