@@ -336,7 +336,7 @@ class TableEdit
         $output = "";
         $output .= "<form method='post'>";
         $output .= $this->get_edit_form($row, $hilight, $row==null);
-        if ($row) {
+        if ($entry_key) {
             $output .= "<input type='submit' name='submit' value='update'>";
             $output .= "<input type='submit' name='submit' value='delete'>";
             $output .= "</form>";
@@ -370,6 +370,7 @@ class TableEdit
     function action_validate_change($row) {
         if (!$this->callback->before_change($row, $errors)) {
             $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>", $errors);
+            $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
             return false;
         }
@@ -383,6 +384,7 @@ class TableEdit
     function action_validate_delete($row) {
         if (!$this->callback->before_delete($row, $errors)) {
             $hilight = $this->display_errors("Failed to delete a row:", $errors);
+            $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
             return false;
         }
@@ -413,8 +415,9 @@ class TableEdit
      * On success, print message.
      * On failure, reprint input form with error messages.
      */
-    function action_update($entry_key) {
+    function action_update() {
         $row = $this->get_input_row();
+        $entry_key = $row[$this->conn->primary_key];
         if (!$this->action_validate_change($row)) return;
 
         // Perform update
@@ -442,7 +445,9 @@ class TableEdit
      * On success, print message.
      * On failure, reprint input form with error messages.
      */
-    function action_delete($entry_key) {
+    function action_delete() {
+        $row = $this->get_input_row();
+        $entry_key = $row[$this->conn->primary_key];
         $selection = $this->conn->key_is($entry_key);
         $row = $this->conn->fetch_one_assoc("SELECT * FROM {$this->conn->table_name} WHERE $selection;");
 
@@ -469,8 +474,10 @@ class TableEdit
      * On success, print message.
      * On failure, reprint input form with error messages.
      */
-    function action_insert($entry_key) {
+    function action_insert() {
         $row = $this->get_input_row();
+        $row[$this->conn->primary_key] = null;
+        $entry_key = null;
         if (!$this->action_validate_change($row)) return;
 
         // Perform insert
@@ -498,19 +505,18 @@ class TableEdit
      * Entry point.
      */
     function display() {
-        $entry_key = $_GET['id'];
         switch ($_POST['submit']) {
         case 'update':
-            $this->action_update($entry_key);
+            $this->action_update();
             break;
         case 'delete':
-            $this->action_delete($entry_key);
+            $this->action_delete();
             break;
         case 'insert':
-            $this->action_insert($entry_key);
+            $this->action_insert();
             break;
         default:
-            $this->action_input($entry_key);
+            $this->action_input($_GET['id']);
         };
     }
 };
@@ -771,6 +777,10 @@ class PhpTableau
         print "<a href=\"?action=view\">View all</a> ";
         print "<a href=\"?action=edit\">Insert a new row</a>";
 
+        #foreach ($_POST as $key => $value) {
+        #    print "POST[$key] = '$value'<br>";
+        #}
+
         // Table view / editor
         switch ($_GET['action']) {
         case null:
@@ -1008,11 +1018,21 @@ class IDDisplay extends TextDisplay
     }
 };
 
+class IDEditor extends Editor
+{
+    function get_form($prefix, $value) {
+        return "<input name=\"{$prefix}_id\" type='hidden' value=\"$value\">" . IDDisplay::get($value);
+    }
+    function get_value($prefix) {
+        return $_POST[$prefix . '_id'];
+    }
+};
+
 class IDColumn extends TextColumn
 {
     function IDColumn() {
         TextColumn::TextColumn();
-        $this->editor = null;
+        $this->editor = new IDEditor();
         $this->display = new IDDisplay();
     }
 };
@@ -1029,7 +1049,7 @@ class ChoiceEditor extends Editor
     
     function ChoiceEditor($choices, $is_map = false) {
         $this->choices = $choices;
-        $this->is_map = false;
+        $this->is_map = $is_map;
     }
 
     function get_form($prefix, $value) {
