@@ -90,7 +90,47 @@ class DBTable
         $result = mysql_query($query, $this->connection);
         return new DBResult($result, $this);
     }
-    
+
+    function key_is($entry_key) {
+        return "{$this->primary_key} = '".$this->escape($entry_key)."'";
+    }
+
+    function select($fields='*', $rest='') {
+        $query = "SELECT {$fields} FROM {$this->table_name} $rest;";
+        return $this->query($query);
+    }
+
+    function update($row, $entry_key=null) {
+        if (!$entry_key) $entry_key = $row[$this->primary_key];
+        $selection = $this->key_is($entry_key);
+        
+        $assign = array();
+        foreach ($row as $key => $value) {
+            $assign[] = "$key = '" . $this->escape($value) . "'";
+        }
+        $assign[] = $selection;
+
+        $query = "UPDATE {$this->table_name} SET " . join(", ", $assign) . " WHERE $selection;";        
+        return $this->query($query);
+    }
+
+    function insert($row) {
+        $fields = array();
+        $values = array();
+        foreach ($row as $key => $value) {
+            $fields[] = $key;
+            $values[] = "'" . $this->escape($value) . "'";;
+        }
+        $query = "INSERT INTO {$this->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
+        return $this->query($query);
+    }
+
+    function delete($entry_key) {
+        $selection = $this->key_is($entry_key);
+        $query = "DELETE FROM {$this->table_name} WHERE $selection;";
+        return $this->query($query);
+    }
+
     function fetch_one_assoc($query) {
         $result = $this->query($query);
         return $result->fetch_assoc();
@@ -116,7 +156,11 @@ class DBResult
 
     function DBResult($result, $connection) {
         $this->result = $result;
-        if (!$result) { $this->error = $connection->error(); }
+        if ($result) {
+            $this->last_id = mysql_insert_id($connection->connection);
+        } else {
+            $this->error = $connection->error();
+        }
     }
     function fetch_assoc() { return mysql_fetch_assoc($this->result); }
     function fetch_object() { return mysql_fetch_object($this->result); }
@@ -308,20 +352,13 @@ class TableEdit
         if (!$this->action_validate_change($row)) return;
 
         // Perform update
-        $selection = "{$this->conn->primary_key} = '".$this->conn->escape($entry_key)."'";
-        $assign = array();
-        foreach ($row as $key => $value) {
-            $assign[] = "$key = '".$this->conn->escape($value)."'";
-        }
-        $assign[] = $selection;
-        $query = "UPDATE {$this->conn->table_name} SET " . join(", ", $assign) . " WHERE $selection;";
-        $result = $this->conn->query($query);
+        $result = $this->conn->update($row, $entry_key);
 
         // Show the result
         if (!$result->error) {
             print "<p>Updated a row successfully:</p>";
             $view = new TableView($this->conn, $this->columns);
-            $view->filter = "WHERE $selection";
+            $view->filter = "WHERE " . $this->conn->key_is($entry_key);
             print $view->get_table_view();
             
             // After callbacks
@@ -337,13 +374,13 @@ class TableEdit
      * Try to delete the row.
      */
     function action_delete($entry_key) {
-        $selection = "{$this->conn->primary_key} = '".$this->conn->escape($entry_key)."'";
+        $selection = $this->conn->key_is($entry_key);
         $row = $this->conn->fetch_one_assoc("SELECT * FROM {$this->conn->table_name} WHERE $selection;");
 
         if (!$this->action_validate_delete($row)) return;
 
-        $query = "DELETE FROM {$this->conn->table_name} WHERE $selection;";
-        $result = $this->conn->query($query);
+        // Perform delete
+        $result = $this->conn->delete($entry_key);
 
         // Show the result
         if (!$result->error) {
@@ -366,21 +403,14 @@ class TableEdit
         if (!$this->action_validate_change($row)) return;
 
         // Perform insert
-        $fields = array();
-        $values = array();
-        foreach ($this->columns as $field_name => $column) {
-            if ($column->editable and $column->editor) {
-                $fields[] = $field_name;
-                $values[] = "'".$this->conn->escape($column->editor->get_value("edit_$field_name"))."'";;
-            }
-        }
-        $query = "INSERT INTO {$this->conn->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
-        $result = $this->conn->query($query);
+        $result = $this->conn->insert($row);
 
         // Show the result
         if (!$result->error) {
+            $result = $this->conn->select(
+                '*', 'WHERE ' . $this->conn->key_is($result->last_id));
             $row = $result->fetch_assoc();
-            $selection = "{$this->conn->primary_key} = '" . $this->conn->escape($row[$this->conn->primary_key]) . "'";
+            $selection = $this->conn->key_is($row[$this->conn->primary_key]);
 
             print "<p>Inserted a row successfully:</p>";
             $view = new TableView($this->conn, $this->columns);
@@ -656,14 +686,14 @@ class DateEditor extends Editor
     function get_form($prefix, $value) {
         $date = parse_date($value);
 
-        if ($date[0] != null and $date[0] < $this->min_year)
-            $this->min_year = $date[0];
-        if ($date[0] != null and $date[0] > $this->max_year)
-            $this->max_year = $date[0];
+        $year_range = array_reverse(range($this->min_year, $this->max_year));
+        if ($date[0] != null and ($date[0] < $this->min_year or
+                                  $date[0] > $this->max_year)) {
+            $year_range[] = $date[0];
+        }
 
         $form = "";
-        $form .= create_select_form("{$prefix}_year", false,
-                                    array_reverse(range($this->min_year, $this->max_year)),
+        $form .= create_select_form("{$prefix}_year", false, $year_range,
                                     "", $date[0]);
         $form .= create_select_form("{$prefix}_month", true, $this->months,
                                     "", $date[1]);
