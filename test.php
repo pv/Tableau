@@ -12,28 +12,29 @@ mysql_select_db($db_database) or die("Unable to select database");
 $tableau = new PhpTableau($connection, 'fubar', "utf-8");
 
 $columns = array(
-    'id' => new IDColumn("ID"),
-    'fubar' => new TextColumn("Fubar"),
-    'darkness' => new TextColumn("Darkness"),
-    'saab' => new TextColumn("Saab"),
-#    'birthdate' => DateColumn(),
-#    'last_updated' => DateTimeColumn(),
+    'id'       => new IDColumn("ID", "Identifier"),
+    'fubar'    => new TextColumn("Fubar", "Fubar for all interested"),
+    'darkness' => new DateTimeColumn("Darkness", "Darkness unless finished"),
+    'saab'     => new TextColumn("Saab", "Saab for the German"),
     );
 
-function validate_id($value, &$msg) {
-    if ($value > 0) {
+function validate_fubar($value, &$msg) {
+    if ($value != "fubar") {
         return true;
     } else {
-        $msg = "FUBLAA!";
+        $msg = "Fubar cannot be \"fubar\"";
         return false;
     }
 }
 
-$columns['id']->add_validator(validate_id);
-$columns['id']->visible = false;
-#$columns['last_update']->editable = false;
+function prevent_delete($row, &$msg) {
+    $msg = "Deleting rows is not allowed, you moron.";
+    return false;
+}
+
+$columns['fubar']->add_validator(validate_fubar);
+
+$tableau->add_callback('before_delete', prevent_delete);
 
 $tableau->set_columns($columns);
-
 $tableau->display();
-?>
