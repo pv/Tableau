@@ -293,9 +293,9 @@ class TableEdit
     }
 
     function action_input($entry_key, $row=null, $hilight=array()) {
-        if (!$row) {
-            $query = sprintf("SELECT * FROM {$this->conn->table_name} WHERE {$this->conn->primary_key} = '%s';", $this->conn->escape($entry_key));
-            $result = $this->conn->query($query);
+        if (!$row and $entry_key) {
+            $result = $this->conn->select(
+                '*', "WHERE " . $this->conn->key_is($entry_key));
             $row = $result->fetch_assoc();
         }
 
@@ -467,19 +467,78 @@ class TableView
     var $columns;
     var $filter;
     var $callback;
+    var $sort;
+    var $searches;
 
     function TableView($conn, &$columns, &$callback) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
+        $this->get_sort();
+        $this->get_filter();
     }
 
+    function get_sort() {
+        $field = $_GET['sort_field'];
+        if (!in_array($field, $this->conn->fields)) {
+            $field = null;
+        }
+
+        $dir = $_GET['sort_dir'];
+        if (!in_array($dir, array('ASC', 'DESC'))) {
+            $dir = null;
+        }
+
+        if (!$field) $field = $this->conn->primary_key;
+        if (!$dir) $dir = "ASC";
+
+        if ($field and $dir) {
+            $this->sort = "ORDER BY {$field} $dir";
+        }
+    }
+
+    function get_filter() {
+        $this->searches = array();
+        $searches = array();
+        foreach ($_GET as $key => $value) {
+            if (preg_match('/^search_([0-9]+)$/', $key) and
+                preg_match('/^(.*?):(.*?):(.*)$/',$value,$matches)) {
+
+                if (!in_array($matches[1], $this->conn->fields))
+                    continue;
+                if (!in_array($matches[2], array('LIKE', '>', '<', '=')))
+                    continue;
+
+                $search = array($matches[1],
+                                $matches[2],
+                                $matches[3]);
+                
+                $this->searches[] = $search;
+
+                $searches[] = $this->conn->escape($matches[1]) . " "
+                    . $matches[2] . " '" . $this->conn->escape($matches[3])
+                    . "'";
+            }
+        }
+        if (!$searches) return;
+        if ($_GET['search_or']) {
+            $this->filter = "WHERE " . join(" OR ", $searches);
+        } else {
+            $this->filter = "WHERE " . join(" AND ", $searches);
+        }
+    }
+    
     function get_table_view() {
-        $query = "SELECT * FROM {$this->conn->table_name} {$this->filter};";
+        $query = "SELECT * FROM {$this->conn->table_name} {$this->filter} {$this->sort};";
         $result = $this->conn->query($query);
+
+        if ($result->error) {
+            return "<p>$query: $result->error</p>";
+        }
         
         $output = "";
 
+        $output .= "<p>Query: " . htmlentities($query) .  "</p>\n";
         $output .= "<table><tr><th></th>";
         foreach ($this->columns as $field_name => $column) {
             if (!$column->visible) continue;

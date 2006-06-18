@@ -1,4 +1,5 @@
 <? # -*-php-*-
+
 require_once('phptableau.php');
 
 $db_host     = 'localhost';
@@ -28,7 +29,9 @@ function validate_fubar($value, &$msg) {
 }
 
 function color_display($row, $field, &$disp, &$cell_attr) {
-    if ($field == 'saab' and !$row[$field]) {
+    if ($field == null) {
+        $cell_attr['style'] = 'background: #f00;';
+    } else if ($field == 'saab' and !$row[$field]) {
         $disp = "<a href=\"?action=edit&id=".$row['id']."\">(missing)</a>";
     } else if ($field == 'darkness') {
         $cell_attr['style'] = 'background: #ccc;';
