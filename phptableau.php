@@ -1,5 +1,6 @@
 <? # -*-php-*-
 
+require("Net/URL.php");
 
 //---------------------------------------------------------------------------//
 // Abstract base for table cell renderers and editors & columns              //
@@ -311,8 +312,9 @@ class TableEdit
                 $disp = $column->editor->get_form("edit_$field_name", $value);
                 $output .= "<td>{$disp}</td>\n";
             } else {
-                $output .= do_format_cell($this->callback, $row, $field_name,
-                                          $column->display->get($value));
+                #$output .= do_format_cell($this->callback, $row, $field_name,
+                #                          $column->display->get($value));
+                $output .= "<td>" . $column->display->get($value) . "</td>";
             }
             if ($column->comment) {
                 $output .= "<td>{$column->comment}</td>";
@@ -631,11 +633,16 @@ class TableView
         }
         $output .= "</tr>";
         
+        $url = new My_URL();
+        $url->addQueryString('action', 'edit');
+        
         while ($row = $result->fetch_assoc()) {
             $output .= "<tr>";
 
-            $output .= do_format_cell($this->callback, $row, null,
-                                      "<a href=\"?action=edit&id=".$row[$this->conn->primary_key] ."\">&raquo;</a>");
+            $url->addQueryString('id', $row[$this->conn->primary_key]);
+            $output .= do_format_cell(
+                $this->callback, $row, null,
+                "<a href=\"" . $url->getURL(true) . "\">&raquo;</a>");
             
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
@@ -774,8 +781,12 @@ class PhpTableau
         }
 
         // Navigation links
-        print "<a href=\"?action=view\">View all</a> ";
-        print "<a href=\"?action=edit\">Insert a new row</a>";
+        $url = new My_URL();
+        $url->removeQueryString('id');
+        $url->addQueryString('action', 'view');
+        print "<a href=\"".$url->getURL(true)."\">View all</a> ";
+        $url->addQueryString('action', 'edit');
+        print "<a href=\"".$url->getURL(true)."\">Insert a new row</a>";
 
         #foreach ($_POST as $key => $value) {
         #    print "POST[$key] = '$value'<br>";
@@ -1039,6 +1050,30 @@ class IDColumn extends TextColumn
 
 
 //
+// --- Last updated column --------------------------------------------------
+//
+
+class LastUpdatedEditor extends Editor
+{
+    function get_form($prefix, $value) {
+        return htmlentities(date('Y-m-d H:i:s'));
+    }
+    function get_value($prefix) {
+        return date('Y-m-d H:i:s');
+    }
+};
+
+class LastUpdatedColumn extends Column
+{
+    function LastUpdatedColumn() {
+        Column::Column();
+        $this->editor = new LastUpdatedEditor();
+        $this->display = new TextDisplay();
+    }
+}
+
+
+//
 // --- Choice columns -------------------------------------------------------
 //
 
@@ -1137,3 +1172,44 @@ class ForeignKeyColumn extends ChoiceColumn
         return $choices;
     }
 };
+
+
+//---------------------------------------------------------------------------//
+// Utilities                                                                 //
+//---------------------------------------------------------------------------//
+
+
+/**
+ * Necessary to allow translation of ampersands to their entity equivalent.
+ * This is due to MSIE replacing &copy= in urls with the copyright symbol,
+ * despite the lack of ending semi-colon... :-/
+ */
+class My_URL extends Net_URL
+{
+    /**
+    * Returns full url
+    *
+    * @param  bool   $convertAmpersands Whether to convert & to &amp;
+    * @return string                    Full url
+    * @access public
+    */
+    function getURL($convertAmpersands = false)
+    {
+        $querystring = $this->getQueryString();
+
+        if ($convertAmpersands) {
+            $querystring = str_replace('&', '&amp;', $querystring);
+            // This is the key difference to My_URL
+        }
+
+        $this->url = $this->protocol . '://'
+                   . $this->user . (!empty($this->pass) ? ':' : '')
+                   . $this->pass . (!empty($this->user) ? '@' : '')
+                   . $this->host . ($this->port == $this->getStandardPort($this->protocol) ? '' : ':' . $this->port)
+                   . $this->path
+                   . (!empty($querystring) ? '?' . $querystring : '')
+                   . (!empty($this->anchor) ? '#' . $this->anchor : '');
+
+        return $this->url;
+    }
+}
