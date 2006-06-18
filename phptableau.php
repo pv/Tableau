@@ -638,8 +638,8 @@ class PhpTableau
         }
 
         // Navigation links
-        print "<a href=\"?action=view\">View</a> ";
-        print "<a href=\"?action=edit\">Insert row</a>";
+        print "<a href=\"?action=view\">View all</a> ";
+        print "<a href=\"?action=edit\">Insert a new row</a>";
 
         // Table view / editor
         switch ($_GET['action']) {
@@ -703,9 +703,9 @@ function parse_date($string) {
 
 function parse_datetime($string) {
     if (!$string) return array(null, null, null, null, null, null);
-    return array(substr($string, 0, 4), substr($string, 5, 2),
-                 substr($string, 8, 2), substr($string, 11, 2),
-                 substr($string, 14, 2), substr($string, 17, 2));
+    return array_merge(parse_date($string),
+                       array(substr($string, 11, 2), substr($string, 14, 2),
+                             substr($string, 17, 2)));
 }
 
 function format_date($ar) {
@@ -713,8 +713,8 @@ function format_date($ar) {
 }
 
 function format_datetime($ar) {
-    return sprintf("%04d-%02d-%02d %02d:%02d:%02d",
-                   $ar[0], $ar[1], $ar[2], $ar[3], $ar[4], $ar[5]);
+    return format_date($ar) . sprintf(" %02d:%02d:%02d",
+                                      $ar[3], $ar[4], $ar[5]);
 }
 
 function create_select_form($name, $is_map, $values, $options, $selected) {
