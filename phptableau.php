@@ -345,12 +345,12 @@ class TableEdit
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
             $output .= "<div class='buttonbox'>";
-            $output .= "<button type='submit' name='submit' value='update'>Update</button>\n";
+            $output .= "<button type='submit' name='submit' value='update'><b>Update</b></button>\n";
             $output .= "<button type='submit' name='submit' value='delete'>Delete</button>\n";
             $output .= "</div></form>\n";
         } else {
             $output .= "<div class='buttonbox'>";
-            $output .= "<button type='submit' name='submit' value='insert'>Insert</button>\n";
+            $output .= "<button type='submit' name='submit' value='insert'><b>Insert</b></button>\n";
             $output .= "</div></form>\n";
         }
 
@@ -420,6 +420,15 @@ class TableEdit
     }
 
     /**
+     * Get a simple HTML OK box that leads to action=view
+     */
+    function get_ok_box() {
+        $url = new My_URL();
+        $url->addQueryString('action', 'view');
+        print "<div class='buttonbox'><form><button type='button' onclick='location.href=\"".$url->getURL(true)."\";'><b>OK</b></button></form></div>";
+    }
+
+    /**
      * Try to update the row with the values found in _POST.
      * On success, print message.
      * On failure, reprint input form with error messages.
@@ -444,6 +453,8 @@ class TableEdit
             // After callbacks
             $this->callback->after_change($row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
+            // OK
+            print $this->get_ok_box();
         } else {
             print "<p>Failed to update a row: $result->error</p>\n";
             $this->action_input($entry_key, $row);
@@ -473,6 +484,9 @@ class TableEdit
             // After callbacks
             $this->callback->after_delete($row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
+
+            // OK
+            print $this->get_ok_box();
         } else {
             print "<p>Deleting a row failed.</p>\n";
             $this->action_input($entry_key, $row);
@@ -505,6 +519,13 @@ class TableEdit
             $view->filter->set_filter($this->conn->primary_key, '=',
                                       $row[$this->conn->primary_key]);
             print $view->get_table_view();
+
+            // After callbacks
+            $this->callback->after_change($row, $errors);
+            $this->display_errors(".. but some errors occurred afterwards:", $errors);
+
+            // OK
+            print $this->get_ok_box();
         } else {
             print "<p>Failed to insert a row: {$result->error}</p>\n";
             $this->action_input($entry_key, $row);
@@ -735,7 +756,7 @@ class TableFilter
 
         $output .= "</table></div>\n";
         $output .= "<div class='buttonbox'>";
-        $output .= "<button type='submit' name='search_submit' value='filter'>Filter</button> ";
+        $output .= "<button type='submit' name='search_submit' value='filter'><b>Filter</b></button> ";
         $output .= "<button type='submit' name='search_submit' value='clear'>Clear</button> ";
         if ($this->nsearch < $this->max_nsearch) {
             $output .= "<button type='submit' name='nsearch' value='" . ($this->nsearch + 1)  .  "'>+</button> ";
@@ -796,16 +817,6 @@ class TableView
         
         $output = "";
 
-        $output .= <<<__EOF__
-<script type="text/javascript" language="JavaScript">
-<!--
-function openlink(URL) {
-    window.open(URL, "", "");
-}
-// -->
-</script>
-__EOF__;
-
         if (!$this->simple) {
             $output .= "<div class='searchbox'>" . $this->filter->get_html() . "</div>\n";
         }
@@ -820,7 +831,7 @@ __EOF__;
         while ($row = $result->fetch_assoc()) {
             $url->addQueryString('id', $row[$this->conn->primary_key]);
 
-            $output .= "<tr class='datarow' onDblClick=\"openlink('" . $url->getURL(true) . "')\">\n";
+            $output .= "<tr class='datarow' onDblClick=\"location.href='" . $url->getURL(true) . "';\">\n";
 
             $output .= do_format_cell(
                 $this->callback, $row, null,
@@ -836,7 +847,10 @@ __EOF__;
         }
 
         $output .= "</table></div>\n";
-        $output .= "<div class='querybox'>Query: " . htmlentities($query) .  "</div>\n";
+        
+        if (!$this->simple) {
+            $output .= "<div class='querybox'>Query: " . htmlentities($query) .  "</div>\n";
+        }
 
         return $output;
     }
@@ -974,9 +988,13 @@ class PhpTableau
         print "<span><a href=\"".$url->getURL(true)."\">Insert a new row</a></span>";
         print "</div>\n";
 
-        #foreach ($_POST as $key => $value) {
-        #    print "POST[$key] = '$value'<br>";
-        #}
+        // Primary key must always be present and editable
+        if (!$this->columns[$this->conn->primary_key]) {
+            $this->columns[$this->conn->primary_key] = new TextColumn();
+            $this->columns[$this->conn->primary_key]->name
+                = $this->conn->primary_key;
+        }
+        $this->columns[$this->conn->primary_key]->editable = true;
 
         // Table view / editor
         switch ($_GET['action']) {
