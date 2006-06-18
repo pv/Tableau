@@ -179,6 +179,8 @@ class Callback
     var $before_delete_callbacks;
     var $after_delete_callbacks;
 
+    var $display_callbacks;
+
     var $columns;
 
     function Callback(&$columns) {
@@ -189,6 +191,8 @@ class Callback
         
         $this->before_delete_callbacks = array();
         $this->after_delete_callbacks = array();
+
+        $this->display_callbacks = array();
     }
 
     function before_change($row, &$errors) {
@@ -228,7 +232,24 @@ class Callback
         }
         return $ok;
     }
+
+    function before_display($row, $field, $proposed_display, &$cell_attr) {
+        foreach ($this->display_callbacks as $cb) {
+            $cb($row, $field, $proposed_display, $cell_attr);
+        }
+        return $proposed_display;
+    }
 };
+
+function do_format_cell($callback, $row, $field_name, $value) {
+    $cell_attr = array();
+    $disp = $callback->before_display($row, $field_name, $value, $cell_attr);
+    $attr = "";
+    foreach ($cell_attr as $key => $value) {
+        $attr .= " $key=\"$value\"";
+    }
+    return "<td$attr>$disp</td>\n";
+ }
 
 class TableEdit
 {
@@ -261,7 +282,8 @@ class TableEdit
                 $disp = $column->editor->get_form("edit_$field_name", $value);
                 $output .= "<td>{$disp}</td>\n";
             } else {
-                $output .= "<td>".$column->display->get($value)."</td>";
+                $output .= do_format_cell($this->callback, $row, $field_name,
+                                          $column->display->get($value));
             }
             if ($column->comment) {
                 $output .= "<td>{$column->comment}</td>";
@@ -357,7 +379,8 @@ class TableEdit
         // Show the result
         if (!$result->error) {
             print "<p>Updated a row successfully:</p>";
-            $view = new TableView($this->conn, $this->columns);
+            $view = new TableView($this->conn, $this->columns,
+                                  $this->callback);
             $view->filter = "WHERE " . $this->conn->key_is($entry_key);
             print $view->get_table_view();
             
@@ -445,10 +468,12 @@ class TableView
     var $conn;
     var $columns;
     var $filter;
+    var $callback;
 
-    function TableView($conn, &$columns) {
+    function TableView($conn, &$columns, &$callback) {
         $this->conn = $conn;
         $this->columns = $columns;
+        $this->callback = $callback;
     }
 
     function get_table_view() {
@@ -475,10 +500,9 @@ class TableView
             
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
-                
                 $value = $row[$field_name];
-                $disp = $column->display->get($value);
-                $output .= "<td>{$disp}</td>\n";
+                $output .= do_format_cell($this->callback, $row, $field_name,
+                                          $column->display->get($value));
             }
             $output .= "</tr>";
         }
@@ -536,6 +560,9 @@ class PhpTableau
         case 'after_delete':
             $this->callback->after_delete_callbacks[] = $cb;
             break;
+        case 'display':
+            $this->callback->display_callbacks[] = $cb;
+            break;
         default:
             die("$place is not a valid callback type.");
             break;
@@ -543,6 +570,7 @@ class PhpTableau
     }
 
     function display() {
+        // Normalize GPC
         if (get_magic_quotes_gpc()) {
             foreach ($_POST as $key => $value) {
                 $_POST[$key] = stripslashes($value);
@@ -555,6 +583,7 @@ class PhpTableau
             }
         }
 
+        // Navigation links
         $url = new My_URL();
         $url->addQueryString('action', 'view');
         $url->removeQueryString('id');
@@ -563,10 +592,12 @@ class PhpTableau
         $url->addQueryString('action', 'edit');
         print " <a href=\"".$url->getURL(true)."\">Insert row</a>";
 
+        // Table view / editor
         switch ($_GET['action']) {
         case null:
         case 'view':
-            $view = new TableView($this->conn, $this->columns);
+            $view = new TableView($this->conn, $this->columns,
+                                  $this->callback);
             $view->display();
             break;
         case 'edit':
@@ -576,7 +607,6 @@ class PhpTableau
             break;
         }
     }
-    
 };
 
 /*****************************************************************************

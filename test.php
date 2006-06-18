@@ -27,14 +27,17 @@ function validate_fubar($value, &$msg) {
     }
 }
 
-function prevent_delete($row, &$msg) {
-    $msg = "Deleting rows is not allowed, you moron.";
-    return false;
+function color_display($row, $field, &$disp, &$cell_attr) {
+    if ($field == 'saab' and !$row[$field]) {
+        $disp = "<a href=\"?action=edit&id=".$row['id']."\">(missing)</a>";
+    } else if ($field == 'darkness') {
+        $cell_attr['style'] = 'background: #ccc;';
+    }
 }
 
 $columns['fubar']->add_validator(validate_fubar);
 
-$tableau->add_callback('before_delete', prevent_delete);
+$tableau->add_callback('display', color_display);
 
 $tableau->set_columns($columns);
 $tableau->display();
