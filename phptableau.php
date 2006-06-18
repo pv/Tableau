@@ -1,7 +1,5 @@
 <? # -*-php-*-
 
-require_once('Net/URL.php');
-
 /*****************************************************************************
  * Table columns (abstract)
  */
@@ -492,11 +490,8 @@ class TableView
         while ($row = $result->fetch_assoc()) {
             $output .= "<tr>";
 
-            $edit_url = new My_URL();
-            $edit_url->addQueryString('action', 'edit');
-            $edit_url->addQueryString('id', $row[$this->conn->primary_key]);
-            
-            $output .= "<td><a href=\"".$edit_url->getURL(true)."\">&raquo;</a></td>";
+            $output .= do_format_cell($this->callback, $row, null,
+                                      "<a href=\"?action=edit&id=".$row[$this->conn->primary_key] ."\">&raquo;</a>");
             
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
@@ -584,13 +579,8 @@ class PhpTableau
         }
 
         // Navigation links
-        $url = new My_URL();
-        $url->addQueryString('action', 'view');
-        $url->removeQueryString('id');
-        print "<a href=\"".$url->getURL(true)."\">View</a>";
-
-        $url->addQueryString('action', 'edit');
-        print " <a href=\"".$url->getURL(true)."\">Insert row</a>";
+        print "<a href=\"?action=view\">View</a> ";
+        print "<a href=\"?action=edit\">Insert row</a>";
 
         // Table view / editor
         switch ($_GET['action']) {
@@ -828,42 +818,3 @@ class IDColumn extends TextColumn
         $this->display = new IDDisplay();
     }
 };
-
-
-/*****************************************************************************
- * URLs
- */
-
-/**
- * Necessary to allow translation of ampersands to their entity
- * equivalent. Thisis due to MSIE replacing &copy= in urls with the copyright
- * symbol, despite the lack of ending semi-colon... :-/
- */
-class My_URL extends Net_URL
-{
-    /**
-    * Returns full url
-    *
-    * @param  bool   $convertAmpersands Whether to convert & to &amp;
-    * @return string                    Full url
-    * @access public
-    */
-    function getURL($convertAmpersands = false)
-    {
-        $querystring = $this->getQueryString();
-
-        if ($convertAmpersands) {
-            $querystring = str_replace('&', '&amp;', $querystring); // This is the key difference to TableEditor_URL
-        }
-
-        $this->url = $this->protocol . '://'
-                   . $this->user . (!empty($this->pass) ? ':' : '')
-                   . $this->pass . (!empty($this->user) ? '@' : '')
-                   . $this->host . ($this->port == $this->getStandardPort($this->protocol) ? '' : ':' . $this->port)
-                   . $this->path
-                   . (!empty($querystring) ? '?' . $querystring : '')
-                   . (!empty($this->anchor) ? '#' . $this->anchor : '');
-
-        return $this->url;
-    }
-}
