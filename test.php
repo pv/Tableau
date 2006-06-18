@@ -12,10 +12,10 @@ mysql_select_db($db_database) or die("Unable to select database");
 $tableau = new PhpTableau($connection, 'fubar', "utf-8");
 
 $columns = array(
-    'id' => new IDColumn(),
-    'fubar' => new TextColumn(),
-    'darkness' => new TextColumn(),
-    'saab' => new TextColumn(),
+    'id' => new IDColumn("ID"),
+    'fubar' => new TextColumn("Fubar"),
+    'darkness' => new TextColumn("Darkness"),
+    'saab' => new TextColumn("Saab"),
 #    'birthdate' => DateColumn(),
 #    'last_updated' => DateTimeColumn(),
     );
@@ -30,8 +30,10 @@ function validate_id($value, &$msg) {
 }
 
 $columns['id']->add_validator(validate_id);
+$columns['id']->visible = false;
 #$columns['last_update']->editable = false;
 
 $tableau->set_columns($columns);
 
 $tableau->display();
+?>
