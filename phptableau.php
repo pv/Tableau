@@ -528,35 +528,23 @@ class TableEdit
 // Table viewer                                                              //
 //---------------------------------------------------------------------------//
 
-/**
- * Display a table.
- */
-class TableView
+class TableSort
 {
-    var $conn;
-    var $columns;
-    var $callback;
-
-    var $filter_sql;
-    var $filters;
-
     var $sort_field;
     var $sort_dir;
     var $sort_sql;
 
-    function TableView($conn, &$columns, &$callback) {
-        $this->conn = $conn;
-        $this->columns = $columns;
-        $this->callback = $callback;
-        $this->get_sort();
-        $this->get_filter();
-    }
+    var $conn;
+    var $columns;
 
-    /**
-     * Formulate an ORDER BY statement based on _GET information.
-     * Also stuff the sort data.
-     */
-    function get_sort() {
+    function TableSort(&$conn, &$columns,
+                       $sort_field = null, $sort_dir = null) {
+        $this->columns = $columns;
+        $this->conn = $conn;
+        
+        if ($_GET['sort_field'] == null) $_GET['sort_field'] = $sort_field;
+        if ($_GET['sort_dir'] == null) $_GET['sort_dir'] = $sort_dir;
+        
         $field = $_GET['sort_field'];
         if (!in_array($field, $this->conn->fields)) {
             $this->sort_field = $this->conn->primary_key;
@@ -570,9 +558,63 @@ class TableView
         } else {
             $this->sort_dir = $dir;
         }
+    }
 
+    /**
+     * Formulate an ORDER BY statement based on _GET information.
+     */
+    function get_sql() {
         $dir = $this->sort_dir ? 'DESC' : 'ASC';
-        $this->sort_sql = "ORDER BY {$this->sort_field} $dir";
+        return "ORDER BY {$this->sort_field} $dir";
+    }
+
+    /**
+     * Formulate a HTML <table> header
+     */
+    function get_table_header() {
+        $output = "";
+        $url = new My_URL();
+        foreach ($this->columns as $field_name => $column) {
+            if (!$column->visible) continue;
+            $url->addQueryString('sort_field', $field_name);
+            if ($this->sort_field == $field_name) {
+                if ($this->sort_dir) {
+                    $ch = "_";
+                    $url->addQueryString('sort_dir', 0);
+                } else {
+                    $ch = "^";
+                    $url->addQueryString('sort_dir', 1);
+                }
+            } else {
+                $ch = "-";
+                $url->addQueryString('sort_dir', 0);
+            }
+            $output .= "<th><a href=\"" . $url->getURL(true) . "\">{$column->name} [$ch]</a></th>";
+        }
+        return $output;
+    }
+};
+
+/**
+ * Display a table.
+ */
+class TableView
+{
+    var $conn;
+    var $columns;
+    var $callback;
+
+    var $sort;
+
+    var $filter_sql;
+    var $filters;
+
+    function TableView($conn, &$columns, &$callback) {
+        $this->conn = $conn;
+        $this->columns = $columns;
+        $this->callback = $callback;
+        $this->get_filter();
+        $this->sort = new TableSort($conn, $columns);
     }
 
     /**
@@ -614,7 +656,7 @@ class TableView
      * Return a view of the table, using the current sort+filter settings.
      */
     function get_table_view() {
-        $query = "SELECT * FROM {$this->conn->table_name} {$this->filter} {$this->sort_sql};";
+        $query = "SELECT * FROM {$this->conn->table_name} {$this->filter} " . $this->sort->get_sql() . ";";
         $result = $this->conn->query($query);
 
         if ($result->error) {
@@ -625,24 +667,7 @@ class TableView
 
         $output .= "<p>Query: " . htmlentities($query) .  "</p>\n";
         $output .= "<table><tr><th></th>";
-        $url = new My_URL();
-        foreach ($this->columns as $field_name => $column) {
-            if (!$column->visible) continue;
-            $url->addQueryString('sort_field', $field_name);
-            if ($this->sort_field == $field_name) {
-                if ($this->sort_dir) {
-                    $ch = "_";
-                    $url->addQueryString('sort_dir', 0);
-                } else {
-                    $ch = "^";
-                    $url->addQueryString('sort_dir', 1);
-                }
-            } else {
-                $ch = "-";
-                $url->addQueryString('sort_dir', 0);
-            }
-            $output .= "<th><a href=\"" . $url->getURL(true) . "\">{$column->name} [$ch]</a></th>";
-        }
+        $output .= $this->sort->get_table_header();
         $output .= "</tr>";
         
         $url = new My_URL();
