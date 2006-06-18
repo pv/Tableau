@@ -294,13 +294,13 @@ class TableEdit
      * @returns string containing form elements in a <table>
      */
     function get_edit_form($row, $hilight = false, $fill_defaults = false) {
-        $output .= "<table>";
+        $output .= "<table>\n";
         foreach ($this->columns as $field_name => $column) {
-            $output .= "<tr>";
+            $output .= "<tr>\n";
             if ($hilight[$field_name]) {
-                $output .= "<td><span style='color: #f00'>{$column->name}</span></td>\n";
+                $output .= "<td class='name'><span style='color: #f00'>{$column->name}</span></td>\n";
             } else {
-                $output .= "<td>{$column->name}</td>\n";
+                $output .= "<td class='name'>{$column->name}</td>\n";
             }
 
             if ($fill_defaults) {
@@ -310,18 +310,18 @@ class TableEdit
             }
             if ($column->editable and $column->editor) {
                 $disp = $column->editor->get_form("edit_$field_name", $value);
-                $output .= "<td>{$disp}</td>\n";
+                $output .= "<td class='value'>{$disp}</td>\n";
             } else {
                 #$output .= do_format_cell($this->callback, $row, $field_name,
                 #                          $column->display->get($value));
-                $output .= "<td>" . $column->display->get($value) . "</td>";
+                $output .= "<td class='value'>" . $column->display->get($value) . "</td>\n";
             }
             if ($column->comment) {
-                $output .= "<td>{$column->comment}</td>";
+                $output .= "<td class='comment'>{$column->comment}</td>\n";
             }
-            $output .= "</tr>";
+            $output .= "</tr>\n";
         }
-        $output .= "</table>";
+        $output .= "</table>\n";
         return $output;
     }
 
@@ -334,17 +334,24 @@ class TableEdit
                 '*', "WHERE " . $this->conn->key_is($entry_key));
             $row = $result->fetch_assoc();
         }
+        if ($entry_key) {
+            print "<h2>Edit row</h2>\n";
+        } else {
+            print "<h2>Insert row</h2>\n";
+        }
 
         $output = "";
-        $output .= "<form method='post'>";
+        $output .= "<form method='post'>\n";
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
-            $output .= "<input type='submit' name='submit' value='update'>";
-            $output .= "<input type='submit' name='submit' value='delete'>";
-            $output .= "</form>";
+            $output .= "<div class='buttonbox'>";
+            $output .= "<button type='submit' name='submit' value='update'>Update</button>\n";
+            $output .= "<button type='submit' name='submit' value='delete'>Delete</button>\n";
+            $output .= "</div></form>\n";
         } else {
-            $output .= "<input type='submit' name='submit' value='insert'>";
-            $output .= "</form>";
+            $output .= "<div class='buttonbox'>";
+            $output .= "<button type='submit' name='submit' value='insert'>Insert</button>\n";
+            $output .= "</div></form>\n";
         }
 
         print $output;
@@ -371,7 +378,7 @@ class TableEdit
      */
     function action_validate_change($row) {
         if (!$this->callback->before_change($row, $errors)) {
-            $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>", $errors);
+            $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>\n", $errors);
             $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
             return false;
@@ -427,17 +434,18 @@ class TableEdit
 
         // Show the result
         if (!$result->error) {
-            print "<p>Updated a row successfully:</p>";
+            print "<p>Updated a row successfully:</p>\n";
             $view = new TableView($this->conn, $this->columns,
-                                  $this->callback);
-            $view->filter = "WHERE " . $this->conn->key_is($entry_key);
+                                  $this->callback, true);
+            $view->filter->set_filter($this->conn->primary_key, '=',
+                                      $entry_key);
             print $view->get_table_view();
             
             // After callbacks
             $this->callback->after_change($row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
         } else {
-            print "<p>Failed to update a row: $result->error</p>";
+            print "<p>Failed to update a row: $result->error</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -460,13 +468,13 @@ class TableEdit
 
         // Show the result
         if (!$result->error) {
-            print "<p>Deleted successfully.</p>";
+            print "<p>Deleted successfully.</p>\n";
 
             // After callbacks
             $this->callback->after_delete($row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
         } else {
-            print "<p>Deleting a row failed.</p>";
+            print "<p>Deleting a row failed.</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -490,15 +498,15 @@ class TableEdit
             $result = $this->conn->select(
                 '*', 'WHERE ' . $this->conn->key_is($result->last_id));
             $row = $result->fetch_assoc();
-            $selection = $this->conn->key_is($row[$this->conn->primary_key]);
 
-            print "<p>Inserted a row successfully:</p>";
+            print "<p>Inserted a row successfully:</p>\n";
             $view = new TableView($this->conn, $this->columns,
-                                  $this->callback);
-            $view->filter = "WHERE $selection";
+                                  $this->callback, true);
+            $view->filter->set_filter($this->conn->primary_key, '=',
+                                      $row[$this->conn->primary_key]);
             print $view->get_table_view();
         } else {
-            print "<p>Failed to insert a row: {$result->error}</p>";
+            print "<p>Failed to insert a row: {$result->error}</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -579,19 +587,175 @@ class TableSort
             $url->addQueryString('sort_field', $field_name);
             if ($this->sort_field == $field_name) {
                 if ($this->sort_dir) {
-                    $ch = "_";
+                    $ch = " &uarr;";
                     $url->addQueryString('sort_dir', 0);
                 } else {
-                    $ch = "^";
+                    $ch = " &darr;";
                     $url->addQueryString('sort_dir', 1);
                 }
             } else {
-                $ch = "-";
+                $ch = "";
                 $url->addQueryString('sort_dir', 0);
             }
-            $output .= "<th><a href=\"" . $url->getURL(true) . "\">{$column->name} [$ch]</a></th>";
+            $output .= "<th class='header'><a href=\"" . $url->getURL(true) . "\">{$column->name}$ch</a></th>\n";
         }
         return $output;
+    }
+};
+
+class TableFilter
+{
+    var $filters;
+    var $operator;
+    
+    var $conn;
+    var $columns;
+
+    var $min_nsearch = 1;
+    var $max_nsearch = 20;
+    var $nsearch;
+
+    /**
+     * Parse filter stuff from _GET
+     */
+    function TableFilter(&$conn, &$columns) {
+        $this->conn = $conn;
+        $this->columns = $columns;
+
+        $this->nsearch = $this->min_nsearch;
+        $this->filters = array();
+
+        if ($_GET['search_submit'] == 'clear') return;
+        
+        if ($_GET['nsearch'] >= $this->min_nsearch and
+            $_GET['nsearch'] <= $this->max_nsearch)
+            $this->nsearch = $_GET['nsearch'];
+
+        for ($i = 0; $i < $this->max_nsearch; ++$i) {
+            $field = $_GET["search_{$i}_field"];
+            $type = $_GET["search_{$i}_type"];
+            $value = $_GET["search_{$i}_value"];
+
+            if (!$type or !$field) continue;
+
+            if (!in_array($field, $this->conn->fields)
+                and $field != '*') continue;
+            if (!in_array($type, array('LIKE', '>', '<', '='))) continue;
+
+            $this->filters[] = array($field, $type, $value);
+        }
+        if ($_GET['search_or']) {
+            $this->operator = ' OR ';
+        } else {
+            $this->operator = ' AND ';
+        }
+
+        if ($nsearch < count($this->filters))
+            $nsearch = count($this->filters);
+    }
+
+    /**
+     * Set a single filters
+     */
+    function set_filter($field_name, $operation, $value) {
+        $this->filters = array(array($field_name, $operation, $value));
+    }
+
+    /**
+     * Formulate a WHERE statement based on _GET information.
+     */
+    function get_sql() {
+        $searches = array();
+        foreach ($this->filters as $filter) {
+            $ch = '';
+            if ($filter[1] == 'LIKE') $ch = '%';
+
+            if ($filter[0] == '*') {
+                $fields = $this->conn->fields;
+            } else {
+                $fields = array($filter[0]);
+            }
+
+            $subsearches = array();
+            foreach ($fields as $field) {
+                $subsearches[] = "LOWER(".$this->conn->escape($field).") "
+                    . $filter[1] . " LOWER('$ch" .
+                    $this->conn->escape($filter[2])
+                    . "$ch')";
+            }
+            $searches[] = "(" . join(" OR ", $subsearches) . ")";
+        }
+        if (!$searches) return "";
+        return "WHERE " . join($this->operator, $searches);
+    }
+
+    /**
+     * Generate a HTML filter input box.
+     */
+    function get_html() {
+        $output = "<form method='get'><div>\n";
+
+        $output .= "<table>\n";
+
+        $fields = array();
+        foreach ($this->columns as $field_name => $column) {
+            $fields[$field_name] = $column->name;
+        }
+        $fields['*'] = '* (ANY FIELD)';
+
+        $choices = array("LIKE" => "contains",
+                         "=" => "is",
+                         ">" => "is greater/later than",
+                         "<" => "is smaller/earlier than");
+
+        for ($i = 0; $i < $this->nsearch; ++$i) {
+            $output .= "<tr><td>";
+            if ($i == 0) {
+                $output .= create_select_form(
+                    "search_or", true, array('0' => "Match all",
+                                             '1' => "Match any"),
+                    '', $this->operator == ' OR ' ? 1 : 0, false);
+            }
+            $output .= "</td>\n";
+            
+            $search = array('', '', '');
+            if ($this->filters[$i]) $search = $this->filters[$i];
+
+            $output .= "<td>";
+            $output .= create_select_form("search_{$i}_field",
+                                          true, $fields, "", $search[0],
+                                          true);
+            $output .= "</td>\n<td>";
+            $output .= create_select_form("search_{$i}_type",
+                                          true, $choices, "", $search[1]);
+            $output .= "</td>\n<td>";
+            $output .= "  <input type='text' name='search_{$i}_value' value='{$search[2]}'>\n";
+            $output .= "</td>\n</tr>\n";
+        }
+
+        $output .= "</table></div>\n";
+        $output .= "<div class='buttonbox'>";
+        $output .= "<button type='submit' name='search_submit' value='filter'>Filter</button> ";
+        $output .= "<button type='submit' name='search_submit' value='clear'>Clear</button> ";
+        if ($this->nsearch < $this->max_nsearch) {
+            $output .= "<button type='submit' name='nsearch' value='" . ($this->nsearch + 1)  .  "'>+</button> ";
+        }
+        if ($this->nsearch > $this->min_nsearch) {
+            $output .= "<button type='submit' name='nsearch' value='" . ($this->nsearch - 1)  .  "'>-</button> ";
+        }
+        $output .= "</div></form>\n";
+        
+        return $output;
+    }
+
+    function cleanup_url(&$url) {
+        for ($i = 0; $i < 50; ++$i) {
+            $url->removeQueryString("search_{$i}_field");
+            $url->removeQueryString("search_{$i}_type");
+            $url->removeQueryString("search_{$i}_value");
+        }
+        $url->removeQueryString("search_or");
+        $url->removeQueryString("search_submit");
     }
 };
 
@@ -606,77 +770,58 @@ class TableView
 
     var $sort;
 
+    var $filter;
     var $filter_sql;
     var $filters;
 
-    function TableView($conn, &$columns, &$callback) {
+    function TableView($conn, &$columns, &$callback, $simple=false) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
-        $this->get_filter();
+        $this->filter = new TableFilter($conn, $columns);
         $this->sort = new TableSort($conn, $columns);
-    }
-
-    /**
-     * Formulate a WHERE statement based on _GET information.
-     * Also stuff the filter data.
-     */
-    function get_filter() {
-        $this->filters = array();
-        $searches = array();
-        foreach ($_GET as $key => $value) {
-            if (preg_match('/^search_([0-9]+)$/', $key) and
-                preg_match('/^(.*?):(.*?):(.*)$/',$value,$matches)) {
-
-                if (!in_array($matches[1], $this->conn->fields))
-                    continue;
-                if (!in_array($matches[2], array('LIKE', '>', '<', '=')))
-                    continue;
-
-                $search = array($matches[1],
-                                $matches[2],
-                                $matches[3]);
-                
-                $this->filters[] = $search;
-
-                $searches[] = $this->conn->escape($matches[1]) . " "
-                    . $matches[2] . " '" . $this->conn->escape($matches[3])
-                    . "'";
-            }
-        }
-        if (!$searches) return;
-        if ($_GET['search_or']) {
-            $this->filter_sql = "WHERE " . join(" OR ", $searches);
-        } else {
-            $this->filter_sql = "WHERE " . join(" AND ", $searches);
-        }
+        $this->simple = $simple;
     }
 
     /**
      * Return a view of the table, using the current sort+filter settings.
      */
     function get_table_view() {
-        $query = "SELECT * FROM {$this->conn->table_name} {$this->filter} " . $this->sort->get_sql() . ";";
+        $query = "SELECT * FROM {$this->conn->table_name} " . $this->filter->get_sql() . " " . $this->sort->get_sql() . ";";
         $result = $this->conn->query($query);
 
         if ($result->error) {
-            return "<p>$query: $result->error</p>";
+            return "<p>$query: $result->error</p>\n";
         }
         
         $output = "";
 
-        $output .= "<p>Query: " . htmlentities($query) .  "</p>\n";
-        $output .= "<table><tr><th></th>";
+        $output .= <<<__EOF__
+<script type="text/javascript" language="JavaScript">
+<!--
+function openlink(URL) {
+    window.open(URL, "", "");
+}
+// -->
+</script>
+__EOF__;
+
+        if (!$this->simple) {
+            $output .= "<div class='searchbox'>" . $this->filter->get_html() . "</div>\n";
+        }
+        
+        $output .= "<div class='resultbox'><table>\n<tr><th></th>\n";
         $output .= $this->sort->get_table_header();
-        $output .= "</tr>";
+        $output .= "</tr>\n";
         
         $url = new My_URL();
         $url->addQueryString('action', 'edit');
         
         while ($row = $result->fetch_assoc()) {
-            $output .= "<tr>";
-
             $url->addQueryString('id', $row[$this->conn->primary_key]);
+
+            $output .= "<tr class='datarow' onDblClick=\"openlink('" . $url->getURL(true) . "')\">\n";
+
             $output .= do_format_cell(
                 $this->callback, $row, null,
                 "<a href=\"" . $url->getURL(true) . "\">&raquo;</a>");
@@ -687,10 +832,11 @@ class TableView
                 $output .= do_format_cell($this->callback, $row, $field_name,
                                           $column->display->get($value));
             }
-            $output .= "</tr>";
+            $output .= "</tr>\n";
         }
 
-        $output .= "</table>";
+        $output .= "</table></div>\n";
+        $output .= "<div class='querybox'>Query: " . htmlentities($query) .  "</div>\n";
 
         return $output;
     }
@@ -819,11 +965,14 @@ class PhpTableau
 
         // Navigation links
         $url = new My_URL();
+        TableFilter::cleanup_url($url);
         $url->removeQueryString('id');
         $url->addQueryString('action', 'view');
-        print "<a href=\"".$url->getURL(true)."\">View all</a> ";
+        print "<div class='linkbox'>";
+        print "<span><a href=\"".$url->getURL(true)."\">View all</a></span> ";
         $url->addQueryString('action', 'edit');
-        print "<a href=\"".$url->getURL(true)."\">Insert a new row</a>";
+        print "<span><a href=\"".$url->getURL(true)."\">Insert a new row</a></span>";
+        print "</div>\n";
 
         #foreach ($_POST as $key => $value) {
         #    print "POST[$key] = '$value'<br>";
@@ -835,12 +984,16 @@ class PhpTableau
         case 'view':
             $view = new TableView($this->conn, $this->columns,
                                   $this->callback);
+            print "<div class='viewbox'>";
             $view->display();
+            print "</div>\n";
             break;
         case 'edit':
             $view = new TableEdit($this->conn, $this->columns,
                                   $this->callback);
+            print "<div class='editbox'>";
             $view->display();
+            print "</div>\n";
             break;
         }
     }
@@ -859,7 +1012,7 @@ class PhpTableau
 class TextEditor extends Editor
 {
     function get_form($prefix, $value) {
-        return "<input name=\"{$prefix}_text\" type=text value=\"$value\">";
+        return "<input name=\"{$prefix}_text\" type=text value=\"$value\">\n";
     }
 
     function get_value($prefix) {
@@ -918,9 +1071,12 @@ function format_datetime($ar) {
     }
 }
 
-function create_select_form($name, $is_map, $values, $options, $selected) {
+function create_select_form($name, $is_map, $values, $options, $selected,
+                            $add_empty = true) {
     $form = "<select name=\"$name\" $options>\n";
-    $form .= "  <option value=\"\"></option>\n";
+    if ($add_empty) {
+        $form .= "  <option value=\"\"></option>\n";
+    }
     foreach ($values as $key => $value) {
         if (!$is_map) $key = $value;
         

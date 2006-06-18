@@ -1,3 +1,8 @@
+<html>
+<head>
+<link rel="stylesheet" href="phptableau.css">
+</head>
+<body>
 <? # -*-php-*-
 
 require_once('phptableau.php');
@@ -25,7 +30,7 @@ if (!in_array($_GET['table'], array('staff', 'responsibilities'))) {
 
 
 if ($_GET['table'] == 'staff') {
-    print "<p><b>Staff</b> <a href=\"?table=responsibilities\">Responsibilities</a></p>";
+    print "<div class='linkbox'><span><b>Staff</b></span> <span><a href=\"?table=responsibilities\">Responsibilities</a></span></div>";
 
     $tableau = new PhpTableau($connection, 'staff');
     
@@ -65,7 +70,7 @@ if ($_GET['table'] == 'staff') {
 
     $tableau->display();
 } else if ($_GET['table'] == 'responsibilities') {
-    print "<p><a href=\"?table=staff\">Staff</a> <b>Responsibilities</b></p>";
+    print "<div class='linkbox'><span><a href=\"?table=staff\">Staff</a></span> <span><b>Responsibilities</b></span></div>";
 
     $tableau = new PhpTableau($connection, 'responsibilities');
     $tableau->set_columns(
@@ -76,7 +81,7 @@ if ($_GET['table'] == 'staff') {
                                                  'calling fire brigade'))
         );
     $tableau->set_name(
-        'id', 'Identifier',
+        'id', 'ID',
         'name', 'Name',
         'responsibility', 'Responsibility'
         );
@@ -87,3 +92,6 @@ if ($_GET['table'] == 'staff') {
 
     $tableau->display();
 }
+?>
+</body>
+</html>
