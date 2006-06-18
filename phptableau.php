@@ -916,10 +916,10 @@ class DateEditor extends Editor
     var $max_year;
 
     function DateEditor($min_year=null, $max_year=null) {
-        $this->set_range($min_year, $max_year);
+        $this->set_year_range($min_year, $max_year);
     }
 
-    function set_range($min_year, $max_year) {
+    function set_year_range($min_year, $max_year) {
         if (!$min_year) $min_year = date('Y') - 10;
         if (!$max_year) $max_year = date('Y') + 10;
         $this->min_year = $min_year;
@@ -961,8 +961,8 @@ class DateColumn extends TextColumn
         $this->display = new TextDisplay();
     }
 
-    function set_range($min_year, $max_year) {
-        $this->editor->set_range($min_year, $max_year);
+    function set_year_range($min_year, $max_year) {
+        $this->editor->set_year_range($min_year, $max_year);
     }
 };
 
