@@ -19,30 +19,40 @@ function value_required($value, &$msg) {
     return true;
 }
 
-if (false) {
+if (!in_array($_GET['table'], array('staff', 'responsibilities'))) {
+    $_GET['table'] = 'staff';
+}
+
+
+if ($_GET['table'] == 'staff') {
+    print "<p><b>Staff</b> <a href=\"?table=responsibilities\">Responsibilities</a></p>";
+
     $tableau = new PhpTableau($connection, 'staff');
     
     $tableau->set_columns(
-        'id',        new IDColumn(),
-        'name',      new TextColumn(),
-        'birthdate', new DateColumn(),
-        'phone',     new TextColumn()
+        'id',           new IDColumn(),
+        'name',         new TextColumn(),
+        'birthdate',    new DateColumn(),
+        'phone',        new TextColumn(),
+        'last_updated', new LastUpdatedColumn()
         );
     $tableau->set_name(
-        'id', "ID",
-        'name', "Name",
-        'birthdate', "Birth date",
-        'phone', "Phone number"
+        'id',           "ID",
+        'name',         "Name",
+        'birthdate',    "Birth date",
+        'phone',        "Phone number",
+        'last_updated', "Last updated"
         );
     $tableau->set_comment(
-        'id', "Identifier",
-        'name', "Name of the person",
-        'birthdate', "Birth date of the person",
-        'phone', "Work phone number extension"
+        'id',         "Identifier",
+        'name',       "Name of the person",
+        'birthdate',  "Birth date of the person",
+        'phone',      "Work phone number extension"
         );
+    $tableau->set_visible('last_updated', false);
 
-    $tableau->columns['birthdate']->set_range(date('Y') - 120,
-                                              date('Y') - 15);
+    $tableau->columns['birthdate']->set_year_range(date('Y') - 120,
+                                                   date('Y') - 15);
 
     function mark_missing($row, $field, &$disp, &$cell_attr) {
         if ($field and !$row[$field]) {
@@ -54,7 +64,9 @@ if (false) {
     $tableau->add_validator('birthdate', value_required);
 
     $tableau->display();
-} else {
+} else if ($_GET['table'] == 'responsibilities') {
+    print "<p><a href=\"?table=staff\">Staff</a> <b>Responsibilities</b></p>";
+
     $tableau = new PhpTableau($connection, 'responsibilities');
     $tableau->set_columns(
         'id', new IDColumn(),
