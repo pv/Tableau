@@ -1421,7 +1421,7 @@ class Tableau_IDColumn extends Tableau_TextColumn
 class Tableau_LastUpdatedEditor extends Tableau_Editor
 {
     function get_form($prefix, $value) {
-        return htmlentities(date('Y-m-d H:i:s'));
+        return htmlentities($value);
     }
     function get_value($prefix) {
         return date('Y-m-d H:i:s');
