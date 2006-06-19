@@ -1,11 +1,11 @@
 <html>
 <head>
-<link rel="stylesheet" href="phptableau.css">
+<link rel="stylesheet" href="tableau.css">
 </head>
 <body>
 <? # -*-php-*-
 
-require_once('phptableau.php');
+require_once('Tableau.php');
 
 $db_host     = 'localhost';
 $db_user     = 'test';
@@ -32,14 +32,14 @@ if (!in_array($_GET['table'], array('staff', 'responsibilities'))) {
 if ($_GET['table'] == 'staff') {
     print "<div class='linkbox'><span><b>Staff</b></span> <span><a href=\"?table=responsibilities\">Responsibilities</a></span></div>";
 
-    $tableau = new PhpTableau($connection, 'staff');
+    $tableau = new Tableau($connection, 'staff');
     
     $tableau->set_columns(
-        'id',           new IDColumn(),
-        'name',         new TextColumn(),
-        'birthdate',    new DateColumn(),
-        'phone',        new TextColumn(),
-        'last_updated', new LastUpdatedColumn()
+        'id',           new Tableau_IDColumn(),
+        'name',         new Tableau_TextColumn(),
+        'birthdate',    new Tableau_DateColumn(),
+        'phone',        new Tableau_TextColumn(),
+        'last_updated', new Tableau_LastUpdatedColumn()
         );
     $tableau->set_name(
         'id',           "ID",
@@ -75,13 +75,13 @@ if ($_GET['table'] == 'staff') {
 } else if ($_GET['table'] == 'responsibilities') {
     print "<div class='linkbox'><span><a href=\"?table=staff\">Staff</a></span> <span><b>Responsibilities</b></span></div>";
 
-    $tableau = new PhpTableau($connection, 'responsibilities');
+    $tableau = new Tableau($connection, 'responsibilities');
     $tableau->set_columns(
-        'id', new IDColumn(),
-        'name', new ForeignKeyColumn($connection,'staff','name','name'),
-        'responsibility', new ChoiceColumn(array('watering plants',
-                                                 'making fires',
-                                                 'calling fire brigade'))
+        'id', new Tableau_IDColumn(),
+        'name', new Tableau_ForeignKeyColumn(
+            $connection, 'staff','name','name'),
+        'responsibility', new Tableau_ChoiceColumn(
+            array('watering plants', 'making fires', 'calling fire brigade'))
         );
     $tableau->set_name(
         'id', 'ID',

@@ -1,15 +1,43 @@
 <? # -*-php-*-
 
+//---------------------------------------------------------------------------//
+// =======                                                                   //
+// Tableau                                                                   //
+// =======                                                                   //
+//                                                                           //
+// Database table editor component written in PHP.                           //
+//                                                                           //
+// Copyright (C) 2006   Pauli Virtanen <pauli.virtanen@iki.fi>               //
+//                                                                           //
+// This script is free software;  you can redistribute it and/or modify      //
+// it under the terms of the GNU General Public License as published by      //
+// the Free Software Foundation;  either version 2  of the License,  or      //
+// (at your option) any later version.                                       //
+//                                                                           //
+// The GNU General Public License can be found at                            //
+// http://www.gnu.org/copyleft/gpl.html.                                     //
+//                                                                           //
+// This script is distributed in the hope that it will be useful, but        //
+// WITHOUT  ANY  WARRANTY;  without  even  the  implied  warranty  of        //
+// MERCHANTABILITY  or  FITNESS  FOR  A  PARTICULAR  PURPOSE. See the        //
+// GNU General Public License for more details.                              //
+//                                                                           //
+//---------------------------------------------------------------------------//
+
+
 require("Net/URL.php");
 
+
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Abstract base for table cell renderers and editors & columns              //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 /**
  * Base class for editors
  */
-class Editor
+class Tableau_Editor
 {
     function get_form($prefix, $value) {}
     function get_value($prefix) {}
@@ -18,7 +46,7 @@ class Editor
 /**
  * Base class for cell displays
  */
-class Display
+class Tableau_Display
 {
     function get($value) {}
 };
@@ -26,7 +54,7 @@ class Display
 /**
  * Base class for columns
  */
-class Column
+class Tableau_Column
 {
     var $visible;
     var $editable;
@@ -37,7 +65,7 @@ class Column
     var $name;
     var $default;
     
-    function Column() {
+    function Tableau_Column() {
         $this->name = null;
         $this->comment = null;
         $this->visible = true;
@@ -65,13 +93,15 @@ class Column
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Simple DB interface                                                       //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 /**
  * Simple database table interface
  */
-class DBTable
+class Tableau_DBTable
 {
     var $connection;
     var $table_name;
@@ -79,7 +109,7 @@ class DBTable
     var $fields;
     var $nrows;
 
-    function DBTable($connection, $table_name) {
+    function Tableau_DBTable($connection, $table_name) {
         $this->connection = $connection;
         $this->table_name = $table_name;
         $this->scan_table_structure();
@@ -98,7 +128,7 @@ class DBTable
     
     function query($query) {
         $result = mysql_query($query, $this->connection);
-        return new DBResult($result, $this);
+        return new Tableau_DBResult($result, $this);
     }
 
     function key_is($entry_key) {
@@ -163,11 +193,11 @@ class DBTable
 /**
  * Simple database query result interface
  */
-class DBResult
+class Tableau_DBResult
 {
     var $result;
 
-    function DBResult($result, $connection) {
+    function Tableau_DBResult($result, $connection) {
         $this->result = $result;
         if ($result) {
             $this->last_id = mysql_insert_id($connection->connection);
@@ -182,13 +212,15 @@ class DBResult
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Callback handler                                                          //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 /**
  * Callback list
  */
-class Callback
+class Tableau_Callback
 {
     var $before_change_callbacks;
     var $after_change_callbacks;
@@ -200,7 +232,7 @@ class Callback
 
     var $columns;
 
-    function Callback(&$columns) {
+    function Tableau_Callback(&$columns) {
         $this->columns = $columns;
 
         $this->before_change_callbacks = array();
@@ -273,19 +305,21 @@ function do_format_cell($callback, $row, $field_name, $value) {
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Record editor                                                             //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 /**
  * Table editor class: editing single rows.
  */
-class TableEdit
+class Tableau_TableEdit
 {
     var $conn;
     var $columns;
     var $callback;
 
-    function TableEdit($conn, &$columns, &$callback) {
+    function Tableau_TableEdit($conn, &$columns, &$callback) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
@@ -425,7 +459,7 @@ class TableEdit
      * Get a simple HTML OK box that leads to action=view
      */
     function get_ok_box() {
-        $url = new My_URL();
+        $url = new Tableau_URL();
         $url->addQueryString('action', 'view');
         print "<div class='buttonbox'><form><button type='button' onclick='location.href=\"".$url->getURL(true)."\";'><b>OK</b></button></form></div>";
     }
@@ -446,8 +480,8 @@ class TableEdit
         // Show the result
         if (!$result->error) {
             print "<p>Updated a row successfully:</p>\n";
-            $view = new TableView($this->conn, $this->columns,
-                                  $this->callback, true);
+            $view = new Tableau_TableView($this->conn, $this->columns,
+                                             $this->callback, true);
             $view->filter->set_filter($this->conn->primary_key, '=',
                                       $entry_key);
             print $view->get_table_view();
@@ -516,8 +550,8 @@ class TableEdit
             $row = $result->fetch_assoc();
 
             print "<p>Inserted a row successfully:</p>\n";
-            $view = new TableView($this->conn, $this->columns,
-                                  $this->callback, true);
+            $view = new Tableau_TableView($this->conn, $this->columns,
+                                             $this->callback, true);
             $view->filter->set_filter($this->conn->primary_key, '=',
                                       $row[$this->conn->primary_key]);
             print $view->get_table_view();
@@ -556,10 +590,17 @@ class TableEdit
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Table viewer                                                              //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
-class TableSort
+
+//
+// --- Sorting table rows ---------------------------------------------------
+//
+
+class Tableau_TableSort
 {
     var $sort_field;
     var $sort_dir;
@@ -568,9 +609,9 @@ class TableSort
     var $conn;
     var $columns;
 
-    function TableSort(&$conn, &$columns,
-                       $default_sort_field = null,
-                       $default_sort_dir = null) {
+    function Tableau_TableSort(&$conn, &$columns,
+                                  $default_sort_field = null,
+                                  $default_sort_dir = null) {
         $this->columns = $columns;
         $this->conn = $conn;
         
@@ -607,7 +648,7 @@ class TableSort
      */
     function get_table_header() {
         $output = "";
-        $url = new My_URL();
+        $url = new Tableau_URL();
         foreach ($this->columns as $field_name => $column) {
             if (!$column->visible) continue;
             $url->addQueryString('sort_field', $field_name);
@@ -629,7 +670,12 @@ class TableSort
     }
 };
 
-class TableFilter
+
+//
+// --- Filtering table rows -------------------------------------------------
+//
+
+class Tableau_TableFilter
 {
     var $filters;
     var $operator;
@@ -644,9 +690,9 @@ class TableFilter
     /**
      * Parse filter stuff from _GET
      */
-    function TableFilter(&$conn, &$columns,
-                         $default_filters=null,
-                         $default_filter_mode=null) {
+    function Tableau_TableFilter(&$conn, &$columns,
+                                    $default_filters=null,
+                                    $default_filter_mode=null) {
         $this->conn = $conn;
         $this->columns = $columns;
 
@@ -807,10 +853,15 @@ class TableFilter
     }
 };
 
+
+//
+// --- Table view -----------------------------------------------------------
+//
+
 /**
  * Display a table.
  */
-class TableView
+class Tableau_TableView
 {
     var $conn;
     var $columns;
@@ -825,18 +876,20 @@ class TableView
     var $limit_offset;
     var $limit_maxrows;
 
-    function TableView($conn, &$columns, &$callback, $simple=false,
-                       $default_sort_field=null, $default_sort_dir=null,
-                       $default_filters=null, $default_filter_mode=null) {
+    function Tableau_TableView($conn, &$columns, &$callback, $simple=false,
+                                  $default_sort_field=null,
+                                  $default_sort_dir=null,
+                                  $default_filters=null,
+                                  $default_filter_mode=null) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
-        $this->filter = new TableFilter($conn, $columns,
-                                        $default_filters,
-                                        $default_filter_mode);
-        $this->sort = new TableSort($conn, $columns,
-                                    $default_sort_field,
-                                    $default_sort_dir);
+        $this->filter = new Tableau_TableFilter($conn, $columns,
+                                                   $default_filters,
+                                                   $default_filter_mode);
+        $this->sort = new Tableau_TableSort($conn, $columns,
+                                               $default_sort_field,
+                                               $default_sort_dir);
         $this->simple = $simple;
 
         $this->limit_maxrows = 100;
@@ -884,7 +937,7 @@ class TableView
 
             $output .= "<span class='label'>Showing rows " . ($this->limit_offset + 1) . " &ndash; {$last_row} (of {$count})</span>  ";
 
-            $url = new My_URL();
+            $url = new Tableau_URL();
             $newoffset = max($this->limit_offset - $this->limit_maxrows, 0);
             if ($newoffset != $this->limit_offset) {
                 $url->addQueryString('offset', $newoffset);
@@ -905,7 +958,7 @@ class TableView
         $output .= $this->sort->get_table_header();
         $output .= "</tr>\n";
         
-        $url = new My_URL();
+        $url = new Tableau_URL();
         $url->addQueryString('action', 'edit');
         
         while ($row = $result->fetch_assoc()) {
@@ -945,7 +998,9 @@ class TableView
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Programmer API & controller                                               //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 function fold_list_to_map($list) {
@@ -959,7 +1014,7 @@ function fold_list_to_map($list) {
 /**
  * Controller and API for the table editor.
  */
-class PhpTableau
+class Tableau
 {
     var $conn;
     var $columns;
@@ -968,10 +1023,10 @@ class PhpTableau
     var $default_sort = array(null, null);
     var $default_filters = array(array(), null);
     
-    function PhpTableau($connection, $table_name) {
-        $this->conn = new DBTable($connection, $table_name);
+    function Tableau($connection, $table_name) {
+        $this->conn = new Tableau_DBTable($connection, $table_name);
         $this->columns = array();
-        $this->callback = new Callback($columns);
+        $this->callback = new Tableau_Callback($columns);
     }
 
     function set_columns() {
@@ -1069,8 +1124,8 @@ class PhpTableau
         }
 
         // Navigation links
-        $url = new My_URL();
-        TableFilter::cleanup_url($url);
+        $url = new Tableau_URL();
+        Tableau_TableFilter::cleanup_url($url);
         $url->removeQueryString('id');
         $url->addQueryString('action', 'view');
         print "<div class='linkbox'>";
@@ -1081,7 +1136,8 @@ class PhpTableau
 
         // Primary key must always be present and editable
         if (!$this->columns[$this->conn->primary_key]) {
-            $this->columns[$this->conn->primary_key] = new TextColumn();
+            $this->columns[$this->conn->primary_key]
+                = new Tableau_TextColumn();
             $this->columns[$this->conn->primary_key]->name
                 = $this->conn->primary_key;
         }
@@ -1091,19 +1147,19 @@ class PhpTableau
         switch ($_GET['action']) {
         case null:
         case 'view':
-            $view = new TableView($this->conn, $this->columns,
-                                  $this->callback, false,
-                                  $this->default_sort[0],
-                                  $this->default_sort[1],
-                                  $this->default_filters[0],
-                                  $this->default_filters[1]);
+            $view = new Tableau_TableView($this->conn, $this->columns,
+                                             $this->callback, false,
+                                             $this->default_sort[0],
+                                             $this->default_sort[1],
+                                             $this->default_filters[0],
+                                             $this->default_filters[1]);
             print "<div class='viewbox'>";
             $view->display();
             print "</div>\n";
             break;
         case 'edit':
-            $view = new TableEdit($this->conn, $this->columns,
-                                  $this->callback);
+            $view = new Tableau_TableEdit($this->conn, $this->columns,
+                                             $this->callback);
             print "<div class='editbox'>";
             $view->display();
             print "</div>\n";
@@ -1114,7 +1170,9 @@ class PhpTableau
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Cell renderers and editors                                                //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 
@@ -1122,7 +1180,7 @@ class PhpTableau
 // --- Text columns ---------------------------------------------------------
 //
 
-class TextEditor extends Editor
+class Tableau_TextEditor extends Tableau_Editor
 {
     function get_form($prefix, $value) {
         return "<input name=\"{$prefix}_text\" type=text value=\"$value\">\n";
@@ -1133,19 +1191,19 @@ class TextEditor extends Editor
     }
 };
 
-class TextDisplay extends Display
+class Tableau_TextDisplay extends Tableau_Display
 {
     function get($value) {
         return htmlentities($value);
     }
 };
 
-class TextColumn extends Column
+class Tableau_TextColumn extends Tableau_Column
 {
-    function TextColumn() {
-        Column::Column();
-        $this->editor = new TextEditor();
-        $this->display = new TextDisplay();
+    function Tableau_TextColumn() {
+        Tableau_Column::Tableau_Column();
+        $this->editor = new Tableau_TextEditor();
+        $this->display = new Tableau_TextDisplay();
     }
 };
 
@@ -1213,7 +1271,7 @@ function format_range($fmt, $min, $max, $step=1) {
     return $value;
 }
     
-class DateEditor extends Editor
+class Tableau_DateEditor extends Tableau_Editor
 {
     var $months = array(1 => 'Jan',  2 => 'Feb',  3 => 'Mar', 4 => 'Apr',
                         5 => 'May',  6 => 'Jun',  7 => 'Jul', 8 => 'Aug',
@@ -1221,7 +1279,7 @@ class DateEditor extends Editor
     var $min_year;
     var $max_year;
 
-    function DateEditor($min_year=null, $max_year=null) {
+    function Tableau_DateEditor($min_year=null, $max_year=null) {
         $this->set_year_range($min_year, $max_year);
     }
 
@@ -1259,12 +1317,12 @@ class DateEditor extends Editor
     }
 };
 
-class DateColumn extends TextColumn
+class Tableau_DateColumn extends Tableau_TextColumn
 {
-    function DateColumn() {
-        TextColumn::TextColumn();
-        $this->editor = new DateEditor();
-        $this->display = new TextDisplay();
+    function Tableau_DateColumn() {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_DateEditor();
+        $this->display = new Tableau_TextDisplay();
     }
 
     function set_year_range($min_year, $max_year) {
@@ -1272,14 +1330,14 @@ class DateColumn extends TextColumn
     }
 };
 
-class DateTimeEditor extends DateEditor
+class Tableau_DateTimeEditor extends Tableau_DateEditor
 {
-    function DateTimeEditor() {
-        DateEditor::DateEditor();
+    function Tableau_DateTimeEditor() {
+        Tableau_DateEditor::Tableau_DateEditor();
     }
 
     function get_form($prefix, $value) {
-        $form = DateEditor::get_form($prefix, $value);
+        $form = Tableau_DateEditor::get_form($prefix, $value);
 
         $date = parse_datetime($value);
 
@@ -1310,12 +1368,12 @@ class DateTimeEditor extends DateEditor
     }
 };
 
-class DateTimeColumn extends DateColumn
+class Tableau_DateTimeColumn extends Tableau_DateColumn
 {
-    function DateTimeColumn() {
-        TextColumn::TextColumn();
-        $this->editor = new DateTimeEditor();
-        $this->display = new TextDisplay();
+    function Tableau_DateTimeColumn() {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_DateTimeEditor();
+        $this->display = new Tableau_TextDisplay();
     }
 };
 
@@ -1324,7 +1382,7 @@ class DateTimeColumn extends DateColumn
 // --- ID columns -----------------------------------------------------------
 //
 
-class IDDisplay extends TextDisplay
+class Tableau_IDDisplay extends Tableau_TextDisplay
 {
     function get($value) {
         if ($value) {
@@ -1335,22 +1393,22 @@ class IDDisplay extends TextDisplay
     }
 };
 
-class IDEditor extends Editor
+class Tableau_IDEditor extends Tableau_Editor
 {
     function get_form($prefix, $value) {
-        return "<input name=\"{$prefix}_id\" type='hidden' value=\"$value\">" . IDDisplay::get($value);
+        return "<input name=\"{$prefix}_id\" type='hidden' value=\"$value\">" . Tableau_IDDisplay::get($value);
     }
     function get_value($prefix) {
         return $_POST[$prefix . '_id'];
     }
 };
 
-class IDColumn extends TextColumn
+class Tableau_IDColumn extends Tableau_TextColumn
 {
-    function IDColumn() {
-        TextColumn::TextColumn();
-        $this->editor = new IDEditor();
-        $this->display = new IDDisplay();
+    function Tableau_IDColumn() {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_IDEditor();
+        $this->display = new Tableau_IDDisplay();
     }
 };
 
@@ -1359,7 +1417,7 @@ class IDColumn extends TextColumn
 // --- Last updated column --------------------------------------------------
 //
 
-class LastUpdatedEditor extends Editor
+class Tableau_LastUpdatedEditor extends Tableau_Editor
 {
     function get_form($prefix, $value) {
         return htmlentities(date('Y-m-d H:i:s'));
@@ -1369,12 +1427,12 @@ class LastUpdatedEditor extends Editor
     }
 };
 
-class LastUpdatedColumn extends Column
+class Tableau_LastUpdatedColumn extends Tableau_Column
 {
-    function LastUpdatedColumn() {
-        Column::Column();
-        $this->editor = new LastUpdatedEditor();
-        $this->display = new TextDisplay();
+    function Tableau_LastUpdatedColumn() {
+        Tableau_Column::Tableau_Column();
+        $this->editor = new Tableau_LastUpdatedEditor();
+        $this->display = new Tableau_TextDisplay();
     }
 }
 
@@ -1383,12 +1441,12 @@ class LastUpdatedColumn extends Column
 // --- Choice columns -------------------------------------------------------
 //
 
-class ChoiceEditor extends Editor
+class Tableau_ChoiceEditor extends Tableau_Editor
 {
     var $choices;
     var $is_map;
     
-    function ChoiceEditor($choices, $is_map = false) {
+    function Tableau_ChoiceEditor($choices, $is_map = false) {
         $this->choices = $choices;
         $this->is_map = $is_map;
     }
@@ -1404,12 +1462,12 @@ class ChoiceEditor extends Editor
     }
 };
 
-class ChoiceDisplay extends Display
+class Tableau_ChoiceDisplay extends Tableau_Display
 {
     var $choices;
     var $is_map;
 
-    function ChoiceDisplay($choices, $is_map) {
+    function Tableau_ChoiceDisplay($choices, $is_map) {
         $this->choices = $choices;
         $this->is_map = $is_map;
     }
@@ -1423,12 +1481,12 @@ class ChoiceDisplay extends Display
     }
 };
 
-class ChoiceColumn extends TextColumn
+class Tableau_ChoiceColumn extends Tableau_TextColumn
 {
-    function ChoiceColumn($choices, $is_map = false) {
-        TextColumn::TextColumn();
-        $this->editor = new ChoiceEditor($choices, $is_map);
-        $this->display = new ChoiceDisplay($choices, $is_map);
+    function Tableau_ChoiceColumn($choices, $is_map = false) {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_ChoiceEditor($choices, $is_map);
+        $this->display = new Tableau_ChoiceDisplay($choices, $is_map);
     }
 
     function set_choices($choices, $is_map=false) {
@@ -1444,18 +1502,19 @@ class ChoiceColumn extends TextColumn
 // --- Foreign key columns -------------------------------------------------
 //
 
-class ForeignKeyColumn extends ChoiceColumn
+class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
 {
-    function ForeignKeyColumn($connection, $table,
-                              $key_field, $value_field, $query='') {
+    function Tableau_ForeignKeyColumn($connection, $table,
+                                         $key_field, $value_field, $query='') {
         $choices = $this->get_choices($connection, $table, $key_field,
                                       $value_field, $query);
-        ChoiceColumn::ChoiceColumn($choices, $key_field != $value_field);
+        Tableau_ChoiceColumn::Tableau_ChoiceColumn(
+            $choices, $key_field != $value_field);
     }
 
     function get_choices($connection, $table, $key_field, $value_field,
                          $query='') {
-        $db = new DBTable($connection, $table);
+        $db = new Tableau_DBTable($connection, $table);
 
         if (!$query) {
             $query = "SELECT {$key_field}, {$value_field} FROM {$table};";
@@ -1481,16 +1540,23 @@ class ForeignKeyColumn extends ChoiceColumn
 
 
 //---------------------------------------------------------------------------//
+//                                                                           //
 // Utilities                                                                 //
+//                                                                           //
 //---------------------------------------------------------------------------//
 
 
+
 /**
+ * This part comes from Richard Heyes's (http://www.phpguru.org/)
+ * TableEditor. (Also under GPL, but probably doesn't matter for snippets
+ * of this size.)
+ *
  * Necessary to allow translation of ampersands to their entity equivalent.
  * This is due to MSIE replacing &copy= in urls with the copyright symbol,
  * despite the lack of ending semi-colon... :-/
  */
-class My_URL extends Net_URL
+class Tableau_URL extends Net_URL
 {
     /**
     * Returns full url
@@ -1505,7 +1571,7 @@ class My_URL extends Net_URL
 
         if ($convertAmpersands) {
             $querystring = str_replace('&', '&amp;', $querystring);
-            // This is the key difference to My_URL
+            // This is the key difference to Tableau_URL
         }
 
         $this->url = $this->protocol . '://'
