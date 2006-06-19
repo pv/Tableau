@@ -1,6 +1,6 @@
 <html>
 <head>
-<link rel="stylesheet" href="tableau.css">
+<link rel="stylesheet" href="Tableau.css">
 </head>
 <body>
 <? # -*-php-*-
