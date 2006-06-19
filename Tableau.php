@@ -664,7 +664,7 @@ class Tableau_TableSort
                 $ch = "";
                 $url->addQueryString('sort_dir', 0);
             }
-            $output .= "<th class='header'><a href=\"" . $url->getURL(true) . "\">{$column->name}$ch</a></th>\n";
+            $output .= "<th class='header'><a href=\"" . $url->getURL(true) . "\">{$column->name}</a>$ch</th>\n";
         }
         return $output;
     }
