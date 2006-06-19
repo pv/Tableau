@@ -62,6 +62,7 @@ if ($_GET['table'] == 'staff') {
     function mark_missing($row, $field, &$disp, &$cell_attr) {
         if ($field and !$row[$field]) {
             $disp = "<a href=\"?action=edit&id=".$row['id']."\">(missing)</a>";
+            $cell_attr['style'] = 'background-color: red; color: white;';
         }
     }
     $tableau->add_callback('display', mark_missing);
