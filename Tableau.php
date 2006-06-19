@@ -344,7 +344,7 @@ class Tableau_TableEdit
             } else {
                 $value = $row[$field_name];
             }
-            if ($column->editable and $column->editor) {
+            if ($column->editable and $column->editor !== null) {
                 $disp = $column->editor->get_form("edit_$field_name", $value);
                 $output .= "<td class='value'>{$disp}</td>\n";
             } else {
@@ -399,7 +399,7 @@ class Tableau_TableEdit
     function get_input_row() {
         $row = array();
         foreach ($this->columns as $field_name => $column) {
-            if ($column->editable and $column->editor) {
+            if ($column->editable and $column->editor !== null) {
                 $row[$field_name] = $column->editor->get_value("edit_$field_name");
             }
         }
@@ -1032,11 +1032,10 @@ class Tableau
     function set_columns() {
         $columns = fold_list_to_map(func_get_args());
         
-        foreach ($columns as $id => &$value) {
-            if (!$value->name) $value->name = $id;
+        foreach ($columns as $id => $value) {
+            if (!$value->name) $columns[$id]->name = $id;
         }
         $this->columns = $columns;
-        $this->callback->columns = $columns;
     }
 
     function set_editable() {
@@ -1122,6 +1121,8 @@ class Tableau
                 $_REQUEST[$key] = stripslashes($value);
             }
         }
+
+        $this->callback->columns = &$this->columns;
 
         // Navigation links
         $url = new Tableau_URL();
@@ -1265,8 +1266,8 @@ function create_select_form($name, $is_map, $values, $options, $selected,
 
 function format_range($fmt, $min, $max, $step=1) {
     $value = range($min, $max, $step);
-    foreach ($value as &$val) {
-        $val = sprintf($fmt, $val);
+    for ($i = 0; $i < count($value); ++$i) {
+        $value[$i] = sprintf($fmt, $value[$i]);
     }
     return $value;
 }
