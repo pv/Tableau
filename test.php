@@ -56,7 +56,7 @@ if (!in_array($_GET['table'], array('staff', 'responsibilities'))) {
 }
 
 
-$linkbox_other_links = "<span><a href='Tableau.phps'>Tableau.php source</a></span><span><a href='test.phps'>test.php, source for this test</a></span>";
+$linkbox_other_links = "<span><a href='Tableau.phps'>Tableau.php source</a></span><span><a href='test.phps'>test.php, source for this test</a></span><span><a href='test.sql'>test.sql</a></span>";
 
 if ($_GET['table'] == 'staff') {
     print "<div class='linkbox'><span><b>Staff</b></span> <span><a href=\"?table=responsibilities\">Responsibilities</a></span>$linkbox_other_links</div>";
@@ -106,7 +106,7 @@ if ($_GET['table'] == 'staff') {
 
     // ...and specify some sensible year range for the date selector.
     // The date selector is quite basic and could probably be improved
-    // a lot.
+    // a lot... JavaScript?
     $tableau->columns['birthdate']->set_year_range(date('Y') - 120,
                                                    date('Y') - 15);
 
