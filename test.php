@@ -68,6 +68,8 @@ if ($_GET['table'] == 'staff') {
     $tableau->add_validator('name', value_required);
     $tableau->add_validator('birthdate', value_required);
 
+    $tableau->set_default_sort('name');
+
     $tableau->display();
 } else if ($_GET['table'] == 'responsibilities') {
     print "<div class='linkbox'><span><a href=\"?table=staff\">Staff</a></span> <span><b>Responsibilities</b></span></div>";
@@ -89,6 +91,9 @@ if ($_GET['table'] == 'staff') {
         'responsibility', 'What this guy or gal should do?');
     $tableau->add_validator('name', value_required);
     $tableau->add_validator('responsibility', value_required);
+
+    $tableau->set_default_sort('name');
+    $tableau->set_default_filters(array(array('name', 'LIKE', 'c')));
 
     $tableau->display();
 }

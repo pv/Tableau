@@ -77,6 +77,7 @@ class DBTable
     var $table_name;
     var $primary_key;
     var $fields;
+    var $nrows;
 
     function DBTable($connection, $table_name) {
         $this->connection = $connection;
@@ -176,6 +177,7 @@ class DBResult
     }
     function fetch_assoc() { return mysql_fetch_assoc($this->result); }
     function fetch_object() { return mysql_fetch_object($this->result); }
+    function fetch_array() { return mysql_fetch_array($this->result); }
 };
 
 
@@ -567,22 +569,25 @@ class TableSort
     var $columns;
 
     function TableSort(&$conn, &$columns,
-                       $sort_field = null, $sort_dir = null) {
+                       $default_sort_field = null,
+                       $default_sort_dir = null) {
         $this->columns = $columns;
         $this->conn = $conn;
         
-        if ($_GET['sort_field'] == null) $_GET['sort_field'] = $sort_field;
-        if ($_GET['sort_dir'] == null) $_GET['sort_dir'] = $sort_dir;
+        if ($_GET['sort_field'] == null)
+            $_GET['sort_field'] = $default_sort_field;
+        if ($_GET['sort_dir'] == null)
+            $_GET['sort_dir'] = $default_sort_dir;
         
         $field = $_GET['sort_field'];
-        if (!in_array($field, $this->conn->fields)) {
+        if (!in_array((string)$field, $this->conn->fields)) {
             $this->sort_field = $this->conn->primary_key;
         } else {
             $this->sort_field = $field;
         }
 
         $dir = $_GET['sort_dir'];
-        if (!in_array($dir, array('0', '1'))) {
+        if (!in_array((string)$dir, array('0', '1'))) {
             $this->sort_dir = '0';
         } else {
             $this->sort_dir = $dir;
@@ -639,7 +644,9 @@ class TableFilter
     /**
      * Parse filter stuff from _GET
      */
-    function TableFilter(&$conn, &$columns) {
+    function TableFilter(&$conn, &$columns,
+                         $default_filters=null,
+                         $default_filter_mode=null) {
         $this->conn = $conn;
         $this->columns = $columns;
 
@@ -659,20 +666,31 @@ class TableFilter
 
             if (!$type or !$field) continue;
 
-            if (!in_array($field, $this->conn->fields)
+            if (!in_array((string)$field, $this->conn->fields)
                 and $field != '*') continue;
-            if (!in_array($type, array('LIKE', '>', '<', '='))) continue;
+            if (!in_array((string)$type, array('LIKE', '>', '<', '=')))
+                continue;
 
             $this->filters[] = array($field, $type, $value);
         }
+
+        if ($_GET['search_or'] == null) {
+            $_GET['search_or'] = $default_filter_mode;
+        }
+        
         if ($_GET['search_or']) {
             $this->operator = ' OR ';
         } else {
             $this->operator = ' AND ';
         }
 
-        if ($nsearch < count($this->filters))
-            $nsearch = count($this->filters);
+        if (!$this->filters and $default_filters) {
+            $this->filters = $default_filters;
+            $this->nsearch = count($this->filters) + 1;
+        }
+
+        if ($this->nsearch < count($this->filters))
+            $this->nsearch = count($this->filters);
     }
 
     /**
@@ -686,6 +704,8 @@ class TableFilter
      * Formulate a WHERE statement based on _GET information.
      */
     function get_sql() {
+        if (!$this->filters) return;
+        
         $searches = array();
         foreach ($this->filters as $filter) {
             $ch = '';
@@ -755,6 +775,13 @@ class TableFilter
         }
 
         $output .= "</table></div>\n";
+
+        foreach ($_GET as $key => $value) {
+            if (!preg_match('/^search_/', $key)) {
+                $output .= "<input type='hidden' name='{$key}' value='{$value}'>";
+            }
+        }
+        
         $output .= "<div class='buttonbox'>";
         $output .= "<button type='submit' name='search_submit' value='filter'><b>Filter</b></button> ";
         $output .= "<button type='submit' name='search_submit' value='clear'>Clear</button> ";
@@ -795,20 +822,49 @@ class TableView
     var $filter_sql;
     var $filters;
 
-    function TableView($conn, &$columns, &$callback, $simple=false) {
+    var $limit_offset;
+    var $limit_maxrows;
+
+    function TableView($conn, &$columns, &$callback, $simple=false,
+                       $default_sort_field=null, $default_sort_dir=null,
+                       $default_filters=null, $default_filter_mode=null) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
-        $this->filter = new TableFilter($conn, $columns);
-        $this->sort = new TableSort($conn, $columns);
+        $this->filter = new TableFilter($conn, $columns,
+                                        $default_filters,
+                                        $default_filter_mode);
+        $this->sort = new TableSort($conn, $columns,
+                                    $default_sort_field,
+                                    $default_sort_dir);
         $this->simple = $simple;
+
+        $this->limit_maxrows = 100;
+        $this->limit_offset = 0;
+
+        /* Parse offset */
+        if ($_GET['offset']) {
+            $this->limit_offset = $_GET['offset'];
+        }
     }
 
     /**
      * Return a view of the table, using the current sort+filter settings.
      */
     function get_table_view() {
-        $query = "SELECT * FROM {$this->conn->table_name} " . $this->filter->get_sql() . " " . $this->sort->get_sql() . ";";
+        // Count visible rows first
+        $query = "SELECT COUNT(*) FROM {$this->conn->table_name} " . $this->filter->get_sql() . ";";
+        $result = $this->conn->query($query);
+        $item = $result->fetch_array();
+        $count = $item[0];
+
+        // Adjust limits
+        if ($count < $this->limit_maxrows) $this->limit_offset = 0;
+        $this->limit_offset = max(0, min($count-1, $this->limit_offset));
+        $last_row = min($this->limit_offset + $this->limit_maxrows, $count);
+
+        // Then get the rows
+        $query = "SELECT * FROM {$this->conn->table_name} " . $this->filter->get_sql() . " " . $this->sort->get_sql() . " LIMIT {$this->limit_offset}, {$this->limit_maxrows};";
         $result = $this->conn->query($query);
 
         if ($result->error) {
@@ -821,7 +877,31 @@ class TableView
             $output .= "<div class='searchbox'>" . $this->filter->get_html() . "</div>\n";
         }
         
-        $output .= "<div class='resultbox'><table>\n<tr><th></th>\n";
+        $output .= "<div class='resultbox'>";
+
+        if ($last_row != $count or $this->limit_offset != 0) {
+            $output .= "<div class='navigaterows'>";
+
+            $output .= "<span class='label'>Showing rows " . ($this->limit_offset + 1) . " &ndash; {$last_row} (of {$count})</span>  ";
+
+            $url = new My_URL();
+            $newoffset = max($this->limit_offset - $this->limit_maxrows, 0);
+            if ($newoffset != $this->limit_offset) {
+                $url->addQueryString('offset', $newoffset);
+                $output .= "<span class='left'><a href=\"" . $url->getURL('left') . "\">&laquo;&laquo; Previous</a></span> ";
+            }
+            
+            $newoffset = min($this->limit_offset + $this->limit_maxrows,
+                             $count - 1);
+            if ($newoffset != $this->limit_offset) {
+                $url->addQueryString('offset', $newoffset);
+                $output .= "<span class='right'><a href=\"" . $url->getURL('left') . "\">Next &raquo;&raquo;</a></span> ";
+            }
+                
+            $output .= "</div>";
+        }
+        
+        $output .= "<table>\n<tr><th></th>\n";
         $output .= $this->sort->get_table_header();
         $output .= "</tr>\n";
         
@@ -885,6 +965,9 @@ class PhpTableau
     var $columns;
     var $callback;
     
+    var $default_sort = array(null, null);
+    var $default_filters = array(array(), null);
+    
     function PhpTableau($connection, $table_name) {
         $this->conn = new DBTable($connection, $table_name);
         $this->columns = array();
@@ -934,6 +1017,14 @@ class PhpTableau
         foreach ($status as $key => $value) {
             $this->columns[$key]->default = $value;
         }
+    }
+
+    function set_default_sort($field, $dir=0) {
+        $this->default_sort = array($field, $dir);
+    }
+
+    function set_default_filters($filters, $filter_or=false) {
+        $this->default_filters = array($filters, $filter_or);
     }
 
     function add_callback($place, $cb) {
@@ -1001,7 +1092,11 @@ class PhpTableau
         case null:
         case 'view':
             $view = new TableView($this->conn, $this->columns,
-                                  $this->callback);
+                                  $this->callback, false,
+                                  $this->default_sort[0],
+                                  $this->default_sort[1],
+                                  $this->default_filters[0],
+                                  $this->default_filters[1]);
             print "<div class='viewbox'>";
             $view->display();
             print "</div>\n";
