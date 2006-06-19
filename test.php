@@ -1,5 +1,16 @@
 <? # -*-php-*-
 
+header('Content-Type: text/html; charset=iso-8859-1');
+
+// This is just for timing... Apparently, the time spent in these
+// routines is completely negligible compared to the HTTP roundtrip time.
+function microtime_float()
+{
+  list($usec, $sec) = explode(" ", microtime());
+  return ((float)$usec + (float)$sec);
+} 
+$start_time = microtime_float();
+
 /*
  * This file is a test for the Tableau class.
  *
@@ -21,9 +32,9 @@ require_once('Tableau.php');
 
 // Ok, specify the database and make a connection
 $db_host     = 'localhost';
-$db_user     = 'test';
-$db_password = 'test';
-$db_database = 'test';
+$db_user     = 'pauli';
+$db_password = 'zKxkTosjvt3p9f9e';
+$db_database = 'pauli';
 
 $connection = mysql_connect($db_host,$db_user,$db_password);
 mysql_select_db($db_database) or die("Unable to select database");
@@ -45,8 +56,10 @@ if (!in_array($_GET['table'], array('staff', 'responsibilities'))) {
 }
 
 
+$linkbox_other_links = "<span><a href='Tableau.phps'>Tableau.php source</a></span><span><a href='test.phps'>test.php, source for this test</a></span>";
+
 if ($_GET['table'] == 'staff') {
-    print "<div class='linkbox'><span><b>Staff</b></span> <span><a href=\"?table=responsibilities\">Responsibilities</a></span></div>";
+    print "<div class='linkbox'><span><b>Staff</b></span> <span><a href=\"?table=responsibilities\">Responsibilities</a></span>$linkbox_other_links</div>";
 
     // Table selector ended here. Very simple.
 
@@ -122,7 +135,7 @@ if ($_GET['table'] == 'staff') {
     $tableau->display();
 
 } else if ($_GET['table'] == 'responsibilities') {
-    print "<div class='linkbox'><span><a href=\"?table=staff\">Staff</a></span> <span><b>Responsibilities</b></span></div>";
+    print "<div class='linkbox'><span><a href=\"?table=staff\">Staff</a></span> <span><b>Responsibilities</b></span>$linkbox_other_links</div>";
 
     // This is the specification for the second table,
     // which goes quite in the same way as previously.
@@ -160,6 +173,10 @@ if ($_GET['table'] == 'staff') {
     // Ok, display it.
     $tableau->display();
 }
+
+$end_time = microtime_float();
+
+print "<span style='float: right; color:#aaa; font-size: 50%;'>Elapsed server time: " . ($end_time - $start_time) . " s</span>";
 
 // And finally print the rest of the HTML
 echo <<<__EOF__
