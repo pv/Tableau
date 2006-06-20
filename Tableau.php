@@ -10,9 +10,8 @@
 // Copyright (C) 2006   Pauli Virtanen <pauli.virtanen@iki.fi>               //
 //                                                                           //
 // This script is free software;  you can redistribute it and/or modify      //
-// it under the terms of the GNU General Public License as published by      //
-// the Free Software Foundation;  either version 2  of the License,  or      //
-// (at your option) any later version.                                       //
+// it under the terms of the GNU General Public License (version 2)  as      //
+// published by the Free Software Foundation.                                //
 //                                                                           //
 // The GNU General Public License can be found at                            //
 // http://www.gnu.org/copyleft/gpl.html.                                     //
@@ -146,7 +145,7 @@ class Tableau_DBTable
         
         $assign = array();
         foreach ($row as $key => $value) {
-            $assign[] = "$key = '" . $this->escape($value) . "'";
+            $assign[] = "$this->table_name.$key = '" . $this->escape($value) . "'";
         }
         $assign[] = $selection;
 
@@ -158,7 +157,7 @@ class Tableau_DBTable
         $fields = array();
         $values = array();
         foreach ($row as $key => $value) {
-            $fields[] = $key;
+            $fields[] = $this->table_name . "." . $key;
             $values[] = "'" . $this->escape($value) . "'";;
         }
         $query = "INSERT INTO {$this->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
@@ -640,7 +639,8 @@ class Tableau_TableSort
      */
     function get_sql() {
         $dir = $this->sort_dir ? 'DESC' : 'ASC';
-        return "ORDER BY {$this->sort_field} $dir";
+        return "ORDER BY " . $this->conn->table_name . "."
+            . $this->sort_field . " $dir";
     }
 
     /**
@@ -765,7 +765,9 @@ class Tableau_TableFilter
 
             $subsearches = array();
             foreach ($fields as $field) {
-                $subsearches[] = "LOWER(".$this->conn->escape($field).") "
+                $subsearches[] = "LOWER("
+                    . $this->conn->table_name . "."
+                    . $this->conn->escape($field) . ") "
                     . $filter[1] . " LOWER('$ch" .
                     $this->conn->escape($filter[2])
                     . "$ch')";
@@ -892,7 +894,7 @@ class Tableau_TableView
                                                $default_sort_dir);
         $this->simple = $simple;
 
-        $this->limit_maxrows = 100;
+        $this->limit_maxrows = 1000;
         $this->limit_offset = 0;
 
         /* Parse offset */
@@ -1518,7 +1520,8 @@ class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
         $db = new Tableau_DBTable($connection, $table);
 
         if (!$query) {
-            $query = "SELECT {$key_field}, {$value_field} FROM {$table};";
+            $query = "SELECT " . $table . "." . $key_field . ", "
+                . $table . "." . $value_field . " FROM {$table};";
         }
 
         $result = $db->query($query);
