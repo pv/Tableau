@@ -82,6 +82,7 @@ body {
 
 .editbox table { 
   border: solid thin #ddd;
+  padding: 0.5em;
   background-color: #f4ffff;
 }
 
@@ -94,8 +95,9 @@ body {
 .editbox table td { 
   padding-bottom: .1em;
 }
-.editbox table td.comment { 
+.editbox table td span.comment { 
   padding-bottom: .1em;
+  padding-left: 1em;
   color: #999;
 }
 

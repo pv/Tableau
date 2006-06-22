@@ -38,6 +38,7 @@ require("Net/URL.php");
  */
 class Tableau_Editor
 {
+    function Tableau_Editor() {}
     function get_form($prefix, $value) {}
     function get_value($prefix) {}
 };
@@ -47,6 +48,7 @@ class Tableau_Editor
  */
 class Tableau_Display
 {
+    function Tableau_Display() {}
     function get($value) {}
 };
 
@@ -345,16 +347,16 @@ class Tableau_TableEdit
             }
             if ($column->editable and $column->editor !== null) {
                 $disp = $column->editor->get_form("edit_$field_name", $value);
-                $output .= "<td class='value'>{$disp}</td>\n";
+                $output .= "<td class='value'>{$disp}\n";
             } else {
                 #$output .= do_format_cell($this->callback, $row, $field_name,
                 #                          $column->display->get($value));
-                $output .= "<td class='value'>" . $column->display->get($value) . "</td>\n";
+                $output .= "<td class='value'>" . $column->display->get($value) . "\n";
             }
             if ($column->comment) {
-                $output .= "<td class='comment'>{$column->comment}</td>\n";
+                $output .= "<span class='comment'>{$column->comment}</span>\n";
             }
-            $output .= "</tr>\n";
+            $output .= "</td></tr>\n";
         }
         $output .= "</table>\n";
         return $output;
@@ -382,10 +384,12 @@ class Tableau_TableEdit
             $output .= "<div class='buttonbox'>";
             $output .= "<button type='submit' name='submit' value='update'><b>Update</b></button>\n";
             $output .= "<button type='submit' name='submit' value='delete'>Delete</button>\n";
+            $output .= "<button type='reset' name='reset'>Revert changes</button>\n";
             $output .= "</div></form>\n";
         } else {
             $output .= "<div class='buttonbox'>";
             $output .= "<button type='submit' name='submit' value='insert'><b>Insert</b></button>\n";
+            $output .= "<button type='reset' name='reset'>Revert changes</button>\n";
             $output .= "</div></form>\n";
         }
 
@@ -1199,8 +1203,22 @@ class Tableau
 
 class Tableau_TextEditor extends Tableau_Editor
 {
+    var $rows;
+    var $cols;
+    
+    function Tableau_TextEditor($rows=-1, $cols=-1) {
+        if ($rows <= 0) $rows = 1;
+        if ($cols <= 0) $cols = 40;
+        $this->rows = $rows;
+        $this->cols = $cols;
+    }
+    
     function get_form($prefix, $value) {
-        return "<input name=\"{$prefix}_text\" type=text value=\"$value\">\n";
+        if ($this->rows == 1) {
+            return "<input name=\"{$prefix}_text\" type=text size={$this->cols} value=\"$value\">\n";
+        } else {
+            return "<textarea name=\"{$prefix}_text\" rows={$this->rows} cols={$this->cols}>$value</textarea>\n";
+        }
     }
 
     function get_value($prefix) {
@@ -1217,13 +1235,66 @@ class Tableau_TextDisplay extends Tableau_Display
 
 class Tableau_TextColumn extends Tableau_Column
 {
-    function Tableau_TextColumn() {
+    function Tableau_TextColumn($rows=-1, $cols=-1) {
         Tableau_Column::Tableau_Column();
-        $this->editor = new Tableau_TextEditor();
+        $this->editor = new Tableau_TextEditor($rows, $cols);
         $this->display = new Tableau_TextDisplay();
     }
 };
 
+
+//
+// --- Number columns -------------------------------------------------------
+//
+
+/** Text editor that normalizes commas to periods */
+class Tableau_NumberEditor extends Tableau_Editor
+{
+    var $unit;
+
+    function Tableau_NumberEditor($unit) {
+        Tableau_Editor::Tableau_Editor();
+        $this->unit = $unit;
+    }
+
+    function get_form($prefix, $value) {
+        $value = str_replace('.', ',', (string)$value);
+        return "<input name=\"{$prefix}_text\" type=text size=20 value=\"$value\" style=\"text-align:right;\">&nbsp;" . $this->unit . "\n";
+    }
+
+    function get_value($prefix) {
+        $str = $_POST["{$prefix}_text"];
+        return str_replace(',', '.', $str); // Normalize comma
+    }
+};
+
+class Tableau_NumberDisplay extends Tableau_Display
+{
+    var $unit;
+
+    function Tableau_NumberDisplay($unit) {
+        Tableau_Display::Tableau_Display();
+        $this->unit = $unit;
+    }
+    
+    function get($value) {
+        if ($value != '') {
+            $value = str_replace('.', ',', (string)$value);
+            return htmlentities($value) . "&nbsp;" . $this->unit;
+	} else {
+	    return '';
+	}
+    }
+};
+
+class Tableau_NumberColumn extends Tableau_Column
+{
+    function Tableau_NumberColumn($unit='') {
+        Tableau_Column::Tableau_Column();
+        $this->editor = new Tableau_NumberEditor($unit);
+        $this->display = new Tableau_NumberDisplay($unit);
+    }
+};
 
 //
 // --- Date columns ---------------------------------------------------------
@@ -1261,7 +1332,7 @@ function format_datetime($ar) {
 
 function create_select_form($name, $is_map, $values, $options, $selected,
                             $add_empty = true) {
-    $form = "<select name=\"$name\" $options>\n";
+    $form = "<select name=\"$name\" id=\"$name\" $options>\n";
     if ($add_empty) {
         $form .= "  <option value=\"\"></option>\n";
     }
@@ -1269,7 +1340,7 @@ function create_select_form($name, $is_map, $values, $options, $selected,
         if (!$is_map) $key = $value;
         
         $form .= "  <option value=\"$key\"";
-        if ($selected == $key) {
+        if ((string)$selected == (string)$key) {
             $form .= " selected>";
         } else {
             $form .= ">";
@@ -1286,6 +1357,41 @@ function format_range($fmt, $min, $max, $step=1) {
         $value[$i] = sprintf($fmt, $value[$i]);
     }
     return $value;
+}
+
+function get_jscalendar($prefix, $has_time, $value, $max_year) {
+    if (!$has_time) {
+        $code = <<<__EOF__
+<input type=hidden name="{$prefix}_jscalendar" id="${prefix}_jscalendar" value="$value">
+<button id="{$prefix}_trigger" type=button>Select</button>
+<script type="text/javascript">
+    function catcalc_{$prefix}(cal) {
+        var date = cal.date;
+
+        var field_y = document.getElementById("{$prefix}_year");
+        var field_m = document.getElementById("{$prefix}_month");
+        var field_d = document.getElementById("{$prefix}_day");
+
+        field_m.selectedIndex = date.print("%m");
+        field_d.selectedIndex = date.print("%d");
+        field_y.selectedIndex = 1 + {$max_year} - date.print("%Y");
+    }
+    Calendar.setup({
+        inputField     :    "${prefix}_jscalendar", // id of the input field
+        ifFormat       :    "%Y-%m-%d", // format of the input field
+        showsTime      :    false,
+        timeFormat     :    "24",
+        button         :    "{$prefix}_trigger",
+        onUpdate       :    catcalc_{$prefix},
+        singleclick    :    true
+    });
+</script>
+__EOF__;
+    } else {
+        $code = "";
+    }
+
+    return $code;
 }
     
 class Tableau_DateEditor extends Tableau_Editor
@@ -1323,6 +1429,7 @@ class Tableau_DateEditor extends Tableau_Editor
                                     "", $date[1]);
         $form .= create_select_form("{$prefix}_day", false, range(1, 31),
                                     "", $date[2]);
+        $form .= get_jscalendar($prefix, false, $value, $year_range[0]);
         return $form;
     }
 
@@ -1371,6 +1478,7 @@ class Tableau_DateTimeEditor extends Tableau_DateEditor
                                     false, format_range("%02d", 0, 23),
                                     "", $date[5]);
 
+        $form .= get_jscalendar($prefix, true, $value);
         return $form;
     }
 
@@ -1598,6 +1706,7 @@ class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
                 $choices[] = $row[$key_field];
             }
         }
+        natcasesort($choices);
         return $choices;
     }
 };
