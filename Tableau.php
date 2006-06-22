@@ -1476,8 +1476,8 @@ class Tableau_ChoiceDisplay extends Tableau_Display
     }
     
     function get($value) {
-        if ($is_map) {
-            return $choices[$value];
+        if ($this->is_map and $this->choices[$value] != '') {
+            return $this->choices[$value];
         } else {
             return $value;
         }
@@ -1502,19 +1502,65 @@ class Tableau_ChoiceColumn extends Tableau_TextColumn
 
 
 //
+// --- Combo choice columns ---------------------------------------------------
+//
+
+class Tableau_ComboChoiceEditor extends Tableau_ChoiceEditor
+{
+    function get_form($prefix, $value) {
+        // FIXME: should hide the input form with javascript
+        //        when it's not needed...
+        $form = create_select_form("{$prefix}_choice",
+                                   $this->is_map, $this->choices,
+                                   "", $value);
+        if (!$this->choices[$value])
+            $textval = $value;
+        else $textval = ""; 
+        $form .= "<input type=\"text\" name=\"{$prefix}_text\" value=\"$textval\">";
+        return $form;
+    }
+
+    function get_value($prefix) {
+        if (!$_POST["{$prefix}_choice"]) {
+            return $_POST["{$prefix}_text"];
+        } else {
+            return $_POST["{$prefix}_choice"];
+        }
+    }
+};
+
+class Tableau_ComboChoiceColumn extends Tableau_TextColumn
+{
+    function Tableau_ComboChoiceColumn($choices, $is_map = false) {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_ComboChoiceEditor($choices, $is_map);
+        $this->display = new Tableau_ChoiceDisplay($choices, $is_map);
+    }
+
+    function set_choices($choices, $is_map=false) {
+        $this->editor->choices = $choices;
+        $this->editor->is_map = $is_map;
+        $this->display->choices = $choices;
+        $this->display->is_map = $is_map;
+    }
+};
+
+
+//
 // --- Foreign key columns -------------------------------------------------
 //
 
 class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
 {
     function Tableau_ForeignKeyColumn($connection, $table,
-                                         $key_field, $value_field, $query='') {
+                                      $key_field, $value_field, $query='') {
         $choices = $this->get_choices($connection, $table, $key_field,
                                       $value_field, $query);
         Tableau_ChoiceColumn::Tableau_ChoiceColumn(
             $choices, $key_field != $value_field);
     }
 
+    /* @static */
     function get_choices($connection, $table, $key_field, $value_field,
                          $query='') {
         $db = new Tableau_DBTable($connection, $table);
@@ -1542,6 +1588,21 @@ class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
     }
 };
 
+
+//
+// --- Foreign key Combo columns ----------------------------------------------
+//
+
+class Tableau_ForeignKeyComboColumn extends Tableau_ComboChoiceColumn
+{
+    function Tableau_ForeignKeyComboColumn($connection, $table,
+                                           $key_field, $value_field,
+                                           $query='') {
+        $choices = Tableau_ForeignKeyColumn::get_choices(
+            $connection, $table, $key_field, $value_field, $query);
+        Tableau_ComboChoiceColumn::Tableau_ComboChoiceColumn($choices,$is_map);
+    }
+};
 
 //---------------------------------------------------------------------------//
 //                                                                           //
