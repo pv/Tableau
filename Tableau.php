@@ -824,7 +824,7 @@ class Tableau_TableFilter
             }
             $output .= "</td>\n";
             
-            $search = array('', '', '');
+            $search = array('', 'LIKE', '');
             if ($this->filters[$i]) $search = $this->filters[$i];
 
             $output .= "<td>";
@@ -833,7 +833,7 @@ class Tableau_TableFilter
                                           true);
             $output .= "</td>\n<td>";
             $output .= create_select_form("search_{$i}_type",
-                                          true, $choices, "", $search[1]);
+                                          false, $choices, "LIKE", $search[1]);
             $output .= "</td>\n<td>";
             $output .= "  <input type='text' name='search_{$i}_value' value='{$search[2]}'>\n";
             $output .= "</td>\n</tr>\n";
