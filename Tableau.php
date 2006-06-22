@@ -601,36 +601,35 @@ class Tableau_TableEdit
 
 class Tableau_TableSort
 {
-    var $sort_field;
-    var $sort_dir;
+    var $sort;
     var $sort_sql;
 
     var $conn;
     var $columns;
 
+    var $max_sort_fields = 3;
+
     function Tableau_TableSort(&$conn, &$columns,
-                                  $default_sort_field = null,
-                                  $default_sort_dir = null) {
+                               $default_sort = null) {
         $this->columns = $columns;
         $this->conn = $conn;
-        
-        if ($_GET['sort_field'] == null)
-            $_GET['sort_field'] = $default_sort_field;
-        if ($_GET['sort_dir'] == null)
-            $_GET['sort_dir'] = $default_sort_dir;
-        
-        $field = $_GET['sort_field'];
-        if (!in_array((string)$field, $this->conn->fields)) {
-            $this->sort_field = $this->conn->primary_key;
-        } else {
-            $this->sort_field = $field;
-        }
 
-        $dir = $_GET['sort_dir'];
-        if (!in_array((string)$dir, array('0', '1'))) {
-            $this->sort_dir = '0';
-        } else {
-            $this->sort_dir = $dir;
+        $this->sort = array();
+
+        $seen_fields = array();
+        
+        for ($i = 0; $i < $this->max_sort_fields; ++$i) {
+            $field = (string)$_GET["sort_field_{$i}"];
+            $dir = (string)$_GET["sort_dir_{$i}"];
+
+            if (!$field) continue;
+            if (!in_array($field, $this->conn->fields)) continue;
+            if (!in_array($dir, array('0', '1'))) $dir = 0;
+            if ($seen_fields[$field]) continue;
+
+            $seen_fields[$field] = true;
+            $this->sort[] = array($field, $dir);
+
         }
     }
 
@@ -638,31 +637,45 @@ class Tableau_TableSort
      * Formulate an ORDER BY statement based on _GET information.
      */
     function get_sql() {
-        $dir = $this->sort_dir ? 'DESC' : 'ASC';
-        return "ORDER BY " . $this->conn->table_name . "."
-            . $this->sort_field . " $dir";
+        $orders = array();
+        foreach ($this->sort as $sort) {
+            $dir = $sort[1] ? 'DESC' : 'ASC';
+            $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
+        }
+        if (count($orders) > 0) {
+            return "ORDER BY " . join(", ", $orders);
+        } else {
+            return "";
+        }
     }
 
     /**
      * Formulate a HTML <table> header
      */
     function get_table_header() {
-        $output = "";
         $url = new Tableau_URL();
+        $i = 1;
+        foreach ($this->sort as $sort) {
+            $url->addQueryString("sort_field_{$i}", $sort[0]);
+            $url->addQueryString("sort_dir_{$i}", $sort[1]);
+            ++$i;
+        }
+        
+        $output = "";
         foreach ($this->columns as $field_name => $column) {
             if (!$column->visible) continue;
-            $url->addQueryString('sort_field', $field_name);
-            if ($this->sort_field == $field_name) {
-                if ($this->sort_dir) {
+            $url->addQueryString('sort_field_0', $field_name);
+            if ($this->sort[0][0] == $field_name) {
+                if ($this->sort[0][1]) {
                     $ch = " &uarr;";
-                    $url->addQueryString('sort_dir', 0);
+                    $url->addQueryString('sort_dir_0', 0);
                 } else {
                     $ch = " &darr;";
-                    $url->addQueryString('sort_dir', 1);
+                    $url->addQueryString('sort_dir_0', 1);
                 }
             } else {
                 $ch = "";
-                $url->addQueryString('sort_dir', 0);
+                $url->addQueryString('sort_dir_0', 0);
             }
             $output .= "<th class='header'><a href=\"" . $url->getURL(true) . "\">{$column->name}</a>$ch</th>\n";
         }
@@ -879,19 +892,17 @@ class Tableau_TableView
     var $limit_maxrows;
 
     function Tableau_TableView($conn, &$columns, &$callback, $simple=false,
-                                  $default_sort_field=null,
-                                  $default_sort_dir=null,
-                                  $default_filters=null,
-                                  $default_filter_mode=null) {
+                               $default_sort=null,
+                               $default_filters=null,
+                               $default_filter_mode=null) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
         $this->filter = new Tableau_TableFilter($conn, $columns,
-                                                   $default_filters,
-                                                   $default_filter_mode);
+                                                $default_filters,
+                                                $default_filter_mode);
         $this->sort = new Tableau_TableSort($conn, $columns,
-                                               $default_sort_field,
-                                               $default_sort_dir);
+                                            $default_sort);
         $this->simple = $simple;
 
         $this->limit_maxrows = 1000;
@@ -1022,7 +1033,7 @@ class Tableau
     var $columns;
     var $callback;
     
-    var $default_sort = array(null, null);
+    var $default_sort = array();
     var $default_filters = array(array(), null);
     
     function Tableau($connection, $table_name) {
@@ -1076,7 +1087,11 @@ class Tableau
     }
 
     function set_default_sort($field, $dir=0) {
-        $this->default_sort = array($field, $dir);
+        $this->default_sort = array(array($field, $dir));
+    }
+
+    function add_default_sort($field, $dir=0) {
+        array_unshift($this->default_sort, array($field, $dir));
     }
 
     function set_default_filters($filters, $filter_or=false) {
@@ -1152,8 +1167,7 @@ class Tableau
         case 'view':
             $view = new Tableau_TableView($this->conn, $this->columns,
                                              $this->callback, false,
-                                             $this->default_sort[0],
-                                             $this->default_sort[1],
+                                             $this->default_sort,
                                              $this->default_filters[0],
                                              $this->default_filters[1]);
             print "<div class='viewbox'>";
