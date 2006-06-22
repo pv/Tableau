@@ -1659,9 +1659,12 @@ class Tableau_ComboChoiceEditor extends Tableau_ChoiceEditor
         $form = create_select_form("{$prefix}_choice",
                                    $this->is_map, $this->choices,
                                    "", $value);
-        if (!$this->choices[$value])
+        if ( $this->is_map and !$this->choices[$value] or
+	    !$this->is_map and !in_array((string)$value, $this->choices)) {
             $textval = $value;
-        else $textval = ""; 
+	} else {
+	    $textval = ""; 
+	}
         $form .= "<input type=\"text\" name=\"{$prefix}_text\" value=\"$textval\">";
         return $form;
     }
