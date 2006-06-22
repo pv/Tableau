@@ -6,16 +6,17 @@ body {
 
 .linkbox { 
   margin: 0em;
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
+  padding-top: 2px;
+  padding-bottom: 2px;
   width: 100%;
   background-color: #eee;
   border-bottom: thin solid black;
+  line-height: 2.1em;
 }
 
 .linkbox span {
   margin: 0em;
-  padding: .45em;
+  padding: .45em; 
   padding-left: 1em;
   padding-right: 1em;
   background-color: #eee;
