@@ -230,6 +230,7 @@ class Tableau_Callback
     var $after_delete_callbacks;
 
     var $display_callbacks;
+    var $display_row_callbacks;
 
     var $columns;
 
@@ -243,6 +244,7 @@ class Tableau_Callback
         $this->after_delete_callbacks = array();
 
         $this->display_callbacks = array();
+        $this->display_row_callbacks = array();
     }
 
     function before_change($row, &$errors) {
@@ -289,6 +291,13 @@ class Tableau_Callback
         }
         return $proposed_display;
     }
+
+    function before_display_row($row, $proposed_display, &$row_attr) {
+        foreach ($this->display_row_callbacks as $cb) {
+            $cb($row, $proposed_display, $row_attr);
+        }
+        return $proposed_display;
+    }
 };
 
 /**
@@ -302,6 +311,15 @@ function do_format_cell($callback, $row, $field_name, $value) {
         $attr .= " $key=\"$value\"";
     }
     return "<td$attr>$disp</td>\n";
+ }
+
+function do_format_row($callback, $row, $value, $row_attr) {
+    $disp = $callback->before_display_row($row, $value, $row_attr);
+    $attr = "";
+    foreach ($row_attr as $key => $value) {
+        $attr .= " $key=\"$value\"";
+    }
+    return "<tr$attr>$disp</tr>\n";
  }
 
 
@@ -349,8 +367,6 @@ class Tableau_TableEdit
                 $disp = $column->editor->get_form("edit_$field_name", $value);
                 $output .= "<td class='value'>{$disp}\n";
             } else {
-                #$output .= do_format_cell($this->callback, $row, $field_name,
-                #                          $column->display->get($value));
                 $output .= "<td class='value'>" . $column->display->get($value) . "\n";
             }
             if ($column->comment) {
@@ -981,18 +997,23 @@ class Tableau_TableView
         while ($row = $result->fetch_assoc()) {
             $url->addQueryString('id', $row[$this->conn->primary_key]);
 
-            $output .= "<tr class='datarow' onDblClick=\"location.href='" . $url->getURL(true) . "';\">\n";
-
-            $output .= do_format_cell(
+            $row_str = "";
+            $row_str .= do_format_cell(
                 $this->callback, $row, null,
                 "<a href=\"" . $url->getURL(true) . "\">&raquo;</a>");
             
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
                 $value = $row[$field_name];
-                $output .= do_format_cell($this->callback, $row, $field_name,
+                $row_str .= do_format_cell($this->callback, $row, $field_name,
                                           $column->display->get($value));
             }
+
+            $row_attr = array();
+            $row_attr['class'] = "datarow";
+            $row_attr['ondblclick'] = "location.href='" . $url->getURL(true) . "';";
+            $output .= do_format_row($this->callback, $row, $row_str,
+                                     $row_attr);
             $output .= "</tr>\n";
         }
 
@@ -1118,6 +1139,9 @@ class Tableau
             break;
         case 'display':
             $this->callback->display_callbacks[] = $cb;
+            break;
+        case 'display_row':
+            $this->callback->display_row_callbacks[] = $cb;
             break;
         default:
             die("$place is not a valid callback type.");
@@ -1259,7 +1283,7 @@ class Tableau_NumberEditor extends Tableau_Editor
 
     function get_form($prefix, $value) {
         $value = str_replace('.', ',', (string)$value);
-        return "<input name=\"{$prefix}_text\" type=text size=20 value=\"$value\" style=\"text-align:right;\">&nbsp;" . $this->unit . "\n";
+        return "<input name=\"{$prefix}_text\" type=text size=20 value=\"$value\">&nbsp;" . $this->unit . "\n";
     }
 
     function get_value($prefix) {
