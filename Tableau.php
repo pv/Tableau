@@ -1132,7 +1132,7 @@ class Tableau
         $url->removeQueryString('id');
         $url->addQueryString('action', 'view');
         print "<div class='linkbox'>";
-        print "<span><a href=\"".$url->getURL(true)."\">View all</a></span> ";
+        print "<span><a href=\"".$url->getURL(true)."\">View all</a></span>";
         $url->addQueryString('action', 'edit');
         print "<span><a href=\"".$url->getURL(true)."\">Insert a new row</a></span>";
         print "</div>\n";

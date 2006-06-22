@@ -6,7 +6,8 @@ body {
 
 .linkbox { 
   margin: 0em;
-  padding: 0.5em;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
   width: 100%;
   background-color: #eee;
   border-bottom: thin solid black;
@@ -14,7 +15,7 @@ body {
 
 .linkbox span {
   margin: 0em;
-  padding: .3em;
+  padding: .45em;
   padding-left: 1em;
   padding-right: 1em;
   background-color: #eee;
