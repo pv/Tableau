@@ -32,9 +32,9 @@ require_once('Tableau.php');
 
 // Ok, specify the database and make a connection
 $db_host     = 'localhost';
-$db_user     = 'pauli';
-$db_password = 'zKxkTosjvt3p9f9e';
-$db_database = 'pauli';
+$db_user     = 'test';
+$db_password = 'test';
+$db_database = 'test';
 
 $connection = mysql_connect($db_host,$db_user,$db_password);
 mysql_select_db($db_database) or die("Unable to select database");
