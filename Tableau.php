@@ -108,6 +108,7 @@ class Tableau_DBTable
     var $table_name;
     var $primary_key;
     var $fields;
+    var $has_null;
     var $nrows;
 
     function Tableau_DBTable($connection, $table_name) {
@@ -123,6 +124,9 @@ class Tableau_DBTable
             if ($row->Key == 'PRI') {
                 $this->primary_key = $row->Field;
             }
+	    if ($row->Null) {
+	        $this->has_null[$row->Field] = true;
+	    }
             $this->fields[] = $row->Field;
         }
     }
@@ -147,7 +151,11 @@ class Tableau_DBTable
         
         $assign = array();
         foreach ($row as $key => $value) {
-            $assign[] = "$this->table_name.$key = '" . $this->escape($value) . "'";
+	    if ($value === null and $this->has_null[$key]) {
+	        $assign[] = "$this->table_name.$key = NULL";
+	    } else {
+                $assign[] = "$this->table_name.$key = '" . $this->escape($value) . "'";
+            }
         }
         $assign[] = $selection;
 
@@ -160,7 +168,11 @@ class Tableau_DBTable
         $values = array();
         foreach ($row as $key => $value) {
             $fields[] = $this->table_name . "." . $key;
-            $values[] = "'" . $this->escape($value) . "'";;
+	    if ($value === null and $this->has_null[$key]) {
+	        $values[] = "NULL";
+	    } else {
+                $values[] = "'" . $this->escape($value) . "'";;
+	    }
         }
         $query = "INSERT INTO {$this->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
         return $this->query($query);
@@ -1288,7 +1300,9 @@ class Tableau_NumberEditor extends Tableau_Editor
 
     function get_value($prefix) {
         $str = $_POST["{$prefix}_text"];
-        return str_replace(',', '.', $str); // Normalize comma
+        $str = str_replace(',', '.', $str); // Normalize comma
+	if ($str == '') return null;
+	return $str;
     }
 };
 
