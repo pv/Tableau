@@ -410,14 +410,14 @@ class Tableau_TableEdit
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
             $output .= "<div class='buttonbox'>";
-            $output .= "<button type='submit' name='submit' value='update'><b>Update</b></button>\n";
-            $output .= "<button type='submit' name='submit' value='delete'>Delete</button>\n";
-            $output .= "<button type='reset' name='reset'>Revert changes</button>\n";
+            $output .= "<input type='submit' name='submit' value='Update'>\n";
+            $output .= "<input type='submit' name='submit' value='Delete'>\n";
+            $output .= "<input type='reset' name='Reset'>\n";
             $output .= "</div></form>\n";
         } else {
             $output .= "<div class='buttonbox'>";
-            $output .= "<button type='submit' name='submit' value='insert'><b>Insert</b></button>\n";
-            $output .= "<button type='reset' name='reset'>Revert changes</button>\n";
+            $output .= "<input type='submit' name='submit' value='Insert'>\n";
+            $output .= "<input type='reset' name='reset' value='Reset'>\n";
             $output .= "</div></form>\n";
         }
 
@@ -492,7 +492,7 @@ class Tableau_TableEdit
     function get_ok_box() {
         $url = new Tableau_URL();
         $url->addQueryString('action', 'view');
-        print "<div class='buttonbox'><form><button type='button' onclick='location.href=\"".$url->getURL(true)."\";'><b>OK</b></button></form></div>";
+        print "<div class='buttonbox'><form><input type='button' onclick='location.href=\"".$url->getURL(true)."\";' value='OK'></form></div>";
     }
 
     /**
@@ -603,14 +603,16 @@ class Tableau_TableEdit
      * Entry point.
      */
     function display() {
-        switch ($_POST['submit']) {
+        switch (trim(strtolower($_POST['submit']))) {
         case 'update':
+        case '<b>update</b>': // Oh, mighty IE, blessed be your bugs
             $this->action_update();
             break;
         case 'delete':
             $this->action_delete();
             break;
         case 'insert':
+        case '<b>insert</b>': // And again, IE
             $this->action_insert();
             break;
         default:
@@ -744,8 +746,6 @@ class Tableau_TableFilter
         $this->nsearch = $this->min_nsearch;
         $this->filters = array();
 
-        if ($_GET['search_submit'] == 'clear') return;
-        
         if ($_GET['nsearch'] >= $this->min_nsearch and
             $_GET['nsearch'] <= $this->max_nsearch)
             $this->nsearch = $_GET['nsearch'];
@@ -861,7 +861,7 @@ class Tableau_TableFilter
                                           true);
             $output .= "</td>\n<td>";
             $output .= create_select_form("search_{$i}_type",
-                                          false, $choices, "LIKE", $search[1]);
+                                          true, $choices, "LIKE", $search[1]);
             $output .= "</td>\n<td>";
             $output .= "  <input type='text' name='search_{$i}_value' value='{$search[2]}'>\n";
             $output .= "</td>\n</tr>\n";
@@ -876,13 +876,22 @@ class Tableau_TableFilter
         }
         
         $output .= "<div class='buttonbox'>";
-        $output .= "<button type='submit' name='search_submit' value='filter'><b>Filter</b></button> ";
-        $output .= "<button type='submit' name='search_submit' value='clear'>Clear</button> ";
+        $output .= "<input type='submit' name='search_submit' value='Filter'> ";
+
+        // Clear button
+        $url = new Tableau_URL();
+        $this->cleanup_url($url);
+        $output .= "<input type='button' onclick='location.href=\"".$url->getURL(true)."\";' value='Clear'> ";
+
+        // Adjusting number of fields
+        $url = new Tableau_URL();
         if ($this->nsearch < $this->max_nsearch) {
-            $output .= "<button type='submit' name='nsearch' value='" . ($this->nsearch + 1)  .  "'>+</button> ";
+            $url->addQueryString('nsearch', $this->nsearch + 1);
+            $output .= "<input type='button' onclick='location.href=\"".$url->getURL(true)."\";' value='+'> ";
         }
         if ($this->nsearch > $this->min_nsearch) {
-            $output .= "<button type='submit' name='nsearch' value='" . ($this->nsearch - 1)  .  "'>-</button> ";
+            $url->addQueryString('nsearch', $this->nsearch - 1);
+            $output .= "<input type='button' onclick='location.href=\"".$url->getURL(true)."\";' value='-'> ";
         }
         $output .= "</div></form>\n";
         
@@ -1169,12 +1178,15 @@ class Tableau
         // Normalize GPC
         if (get_magic_quotes_gpc()) {
             foreach ($_POST as $key => $value) {
+                //print "POST: \"$key\" => \"$value\"<br>";
                 $_POST[$key] = stripslashes($value);
             }
             foreach ($_GET as $key => $value) {
+                //print "GET: \"$key\" => \"$value\"<br>";
                 $_GET[$key] = stripslashes($value);
             }
             foreach ($_REQUEST as $key => $value) {
+                //print "REQUEST: \"$key\" => \"$value\"<br>";
                 $_REQUEST[$key] = stripslashes($value);
             }
         }
@@ -1202,7 +1214,7 @@ class Tableau
         $this->columns[$this->conn->primary_key]->editable = true;
 
         // Table view / editor
-        switch ($_GET['action']) {
+        switch (trim(strtolower($_GET['action']))) {
         case null:
         case 'view':
             $view = new Tableau_TableView($this->conn, $this->columns,
@@ -1401,7 +1413,7 @@ function get_jscalendar($prefix, $has_time, $value, $max_year) {
     if (!$has_time) {
         $code = <<<__EOF__
 <input type=hidden name="{$prefix}_jscalendar" id="${prefix}_jscalendar" value="$value">
-<button id="{$prefix}_trigger" type=button>Select</button>
+<input id="{$prefix}_trigger" type=button value='Select'>
 <script type="text/javascript">
     function catcalc_{$prefix}(cal) {
         var date = cal.date;
