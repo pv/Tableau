@@ -665,6 +665,10 @@ class Tableau_TableSort
             $this->sort[] = array($field, $dir);
 
         }
+
+        if (!$this->sort) {
+            $this->sort = $default_sort;
+        }
     }
 
     /**
@@ -674,6 +678,7 @@ class Tableau_TableSort
         $orders = array();
         foreach ($this->sort as $sort) {
             $dir = $sort[1] ? 'DESC' : 'ASC';
+            $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') $dir";
             $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
         }
         if (count($orders) > 0) {
@@ -1680,18 +1685,37 @@ class Tableau_ChoiceColumn extends Tableau_TextColumn
 class Tableau_ComboChoiceEditor extends Tableau_ChoiceEditor
 {
     function get_form($prefix, $value) {
-        // FIXME: should hide the input form with javascript
-        //        when it's not needed...
         $form = create_select_form("{$prefix}_choice",
                                    $this->is_map, $this->choices,
-                                   "", $value);
+                                   "onchange='process_choice_{$prefix}(this, document.getElementById(\"{$prefix}_text\"))'", $value);
         if ( $this->is_map and !$this->choices[$value] or
 	    !$this->is_map and !in_array((string)$value, $this->choices)) {
             $textval = $value;
 	} else {
 	    $textval = ""; 
 	}
-        $form .= "<input type=\"text\" name=\"{$prefix}_text\" value=\"$textval\">";
+        $form .= "<input type=\"text\" name=\"{$prefix}_text\" id=\"{$prefix}_text\" value=\"$textval\" size=40>";
+
+        $form .= <<<__EOF__
+<script type="text/javascript" language="JavaScript">
+function process_choice_{$prefix}(selection, textfield) {
+  if (selection.selectedIndex == 0) {
+    textfield.disabled = false;
+    textfield.focus();
+  } else {
+    textfield.disabled = true;
+    textfield.blur();
+  }
+}
+
+textfield = document.getElementById("{$prefix}_text");
+selection = document.getElementById("{$prefix}_choice");
+if (selection.selectedIndex != 0) {
+    textfield.disabled = true;
+    textfield.blur();
+}        
+</script>
+__EOF__;
         return $form;
     }
 
