@@ -1944,7 +1944,7 @@ class Tableau_FileColumn extends Tableau_Column
         // Move file
         $dest = $this->directory + "/" + $value;
         if (!move_uploaded_file($_FILES[$key]['tmp_name'], $dest)) {
-            $msg = "Error moving file."
+            $msg = "Error moving file.";
             return false;
         }
         return true;
