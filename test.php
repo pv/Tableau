@@ -32,9 +32,9 @@ require_once('Tableau.php');
 
 // Ok, specify the database and make a connection
 $db_host     = 'localhost';
-$db_user     = 'test';
-$db_password = 'test';
-$db_database = 'test';
+$db_user     = 'pauli';
+$db_password = 'JniPk0gex9HN9TnN';
+$db_database = 'pauli';
 
 $connection = mysql_connect($db_host,$db_user,$db_password);
 mysql_select_db($db_database) or die("Unable to select database");
@@ -80,8 +80,9 @@ if ($_GET['table'] == 'staff') {
         // Then, a date
         'phone',        new Tableau_TextColumn(),
         // More text
-        'last_updated', new Tableau_LastUpdatedColumn()
+        'last_updated', new Tableau_LastUpdatedColumn(),
         // And an automatically updating "last changed" field.
+        'photo_filename', new Tableau_FileColumn("/home/pauli/public_html/Tableau/testup", "/~pauli/Tableau/testup")
         );
 
     // Next, set some pretty display names for the columns
@@ -90,6 +91,7 @@ if ($_GET['table'] == 'staff') {
         'name',         "Name",
         'birthdate',    "Birth date",
         'phone',        "Phone number",
+        'photo_filename', "Photo",
         'last_updated', "Last updated"
         );
 
