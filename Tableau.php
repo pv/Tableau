@@ -1927,6 +1927,20 @@ class Tableau_FileColumn extends Tableau_Column
             $extension = "." . $matches[1];
         }
 
+        // Check if extension was changed...
+        if ($value) {
+            $old_extension = "";
+            $old_stem = $value;
+            if (preg_match("/^(.*)\\.([^.]+)$/", $value, $matches)) {
+                $old_stem = $matches[1];
+                $old_extension = "." . $matches[2];
+            }
+
+            if ($extension != $old_extension) {
+                $value = $old_stem . $extension;
+            }
+        }
+
         // Generate name, if missing
         if (!$value) {
             $cb = $this->name_generator;
