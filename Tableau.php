@@ -64,6 +64,7 @@ class Tableau_Column
     var $display;
     var $comment;
     var $name;
+    var $field_name;
     var $default;
     
     function Tableau_Column() {
@@ -78,7 +79,7 @@ class Tableau_Column
         $this->validators[] = $validator;
     }
 
-    function validate_value(&$value, &$msg, $row) {
+    function validate_value(&$value, &$msg, &$row) {
         foreach ($this->validators as $validator) {
             if (!$validator($value, &$msg)) {
                 return false;
@@ -87,7 +88,7 @@ class Tableau_Column
         return true;
     }
 
-    function finalize_value(&$value, &$msg, $row) { return true; }
+    function finalize_value(&$value, &$msg, &$row) { return true; }
 
     function set_default($value) {
         $this->default = $value;
@@ -261,7 +262,7 @@ class Tableau_Callback
         $this->display_row_callbacks = array();
     }
 
-    function before_change($row, &$errors) {
+    function before_change(&$row, &$errors) {
         $ok = true;
         foreach ($this->columns as $field_name => $column) {
             if (!$column->validate_value($row[$field_name], $msg, $row)) {
@@ -275,7 +276,7 @@ class Tableau_Callback
         return $ok;
     }
 
-    function after_change($row, &$errors) {
+    function after_change(&$row, &$errors) {
         $ok = true;
         foreach ($this->columns as $field_name => $column) {
             if (!$column->finalize_value($row[$field_name], $msg, $row)) {
@@ -289,7 +290,7 @@ class Tableau_Callback
         return $ok;
     }
 
-    function before_delete($row, &$errors) {
+    function before_delete(&$row, &$errors) {
         $ok = true;
         foreach ($this->before_delete_callbacks as $cb) {
             if (!$cb($row, $msg)) { $errors[null][] = $msg; $ok = false; }
@@ -297,7 +298,7 @@ class Tableau_Callback
         return $ok;
     }
 
-    function after_delete($row, &$errors) {
+    function after_delete(&$row, &$errors) {
         $ok = true;
         foreach ($this->before_delete_callbacks as $cb) {
             if (!$cb($row, $msg)) { $errors[null][] = $msg; $ok = false; }
@@ -414,7 +415,7 @@ class Tableau_TableEdit
         }
 
         $output = "";
-        $output .= "<form method='post'>\n";
+        $output .= "<form enctype='multipart/form-data' method='post'>\n";
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
             $output .= "<div class='buttonbox'>";
@@ -451,7 +452,7 @@ class Tableau_TableEdit
      * If it fails, print the errors, an edit form, and ask the user to fix the
      * errors.
      */
-    function action_validate_change($row) {
+    function action_validate_change(&$row) {
         if (!$this->callback->before_change($row, $errors)) {
             $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>\n", $errors);
             $entry_key = $row[$this->conn->primary_key];
@@ -465,7 +466,7 @@ class Tableau_TableEdit
      * Call all 'before_delete' callbacks, including column data validation.
      * Print error messages and the input form if fails.
      */
-    function action_validate_delete($row) {
+    function action_validate_delete(&$row) {
         if (!$this->callback->before_delete($row, $errors)) {
             $hilight = $this->display_errors("Failed to delete a row:", $errors);
             $entry_key = $row[$this->conn->primary_key];
@@ -1106,6 +1107,7 @@ class Tableau
         
         foreach ($columns as $id => $value) {
             if (!$value->name) $columns[$id]->name = $id;
+            $columns[$id]->field_name = $id;
         }
         $this->columns = $columns;
     }
@@ -1820,14 +1822,15 @@ class Tableau_ForeignKeyComboColumn extends Tableau_ComboChoiceColumn
 /** Generate a unique file name */
 function tableau_default_file_name_generator($directory, $extension, $row) {
     $prefix = "";
-    
-    if ($row['id']) $prefix = $row['id'] + "_";
-    if ($row['Id']) $prefix = $row['Id'] + "_";
-    if ($row['ID']) $prefix = $row['ID'] + "_";
-    
-    if ($prefix and !file_exists($directory + "/" + $prefix + $extension)) {
-        return $prefix + $extension;
+
+    if ($row['name']) $prefix = $row['name'];
+    if ($row['id']) $prefix = $row['id'];
+    if ($row['ID']) $prefix = $row['ID'];
+
+    if ($prefix != "" and !file_exists($directory+"/"+$prefix+$extension)) {
+        return $prefix . $extension;
     } else {
+        if ($prefix != "") $prefix .= "_";
         while (1) {
             $filename = tempnam($directory, $prefix) + $extension;
             if (file_exists($filename)) continue;
@@ -1853,15 +1856,21 @@ class Tableau_FileEditor extends Tableau_Editor
 class Tableau_FileDisplay extends Tableau_Display
 {
     function Tableau_FileDisplay($www_directory=null) {
+        Tableau_Display::Tableau_Display();
         $this->www_directory = $www_directory;
     }
     
     function get($value) {
         if ($this->www_directory) {
-            return "<a href='$this->www_directory/$value'>";
+            if (preg_match("/\\.(png|jpg|gif|jpeg)$/", $value)) {
+                return "<a href='$this->www_directory/$value'><img src='$this->www_directory/$value' alt='[Image]'></a>";
+            } else {
+                return "<a href='$this->www_directory/$value'><b>[File]</b></a>";
+            }
         } else {
             return "<b>[File]</b>";
         }
+        return "<b>[File]</b>";
     }
 };
 
@@ -1870,6 +1879,8 @@ class Tableau_FileColumn extends Tableau_Column
     function Tableau_FileColumn($directory,
                                 $www_directory=null,
                                 $name_generator=null) {
+        Tableau_Column::Tableau_Column();
+
         // strip terminal slash
         preg_match("/^(.*?)\\/*$/", $directory, $matches);
         $directory = $matches[1];
@@ -1877,7 +1888,7 @@ class Tableau_FileColumn extends Tableau_Column
         // proceed
         $this->directory = $directory;
         if (!$directory) die("No directory for Tableau_FileColumn");
-        if ($name_generator) {
+        if ($name_generator != null) {
             $this->name_generator = $name_generator;
         } else {
             $this->name_generator = tableau_default_file_name_generator;
@@ -1889,40 +1900,37 @@ class Tableau_FileColumn extends Tableau_Column
     }
 
     function validate_value(&$value, &$msg, $row) {
-        $key = "edit_{$this->name}_file";
+        $key = "edit_{$this->field_name}_file";
 
-        if (!$_FILES[$key]) {
-            $msg = "No file uploaded";
-            return;
-        }
         if (!$_FILES[$key]['name']) {
-            $msg = "No file uploaded" + "<br>\n" + $_FILES[$key]['error'];
-            return false;
+            // no file given
+            $value = null;
+            return Tableau_Column::validate_value($value, $msg, $row);
         }
 
-        if (!$_FILES[$key]['size'] <= 0) {
-            $msg = "Empty file uploaded" + "<br>" + $_FILES[$key]['error'];
+        if ($_FILES[$key]['size'] <= 0) {
+            $size = $_FILES[$key]['size'];
+            $msg = "Empty file uploaded: $size";
             return false;
         }
 
         if (!is_uploaded_file($_FILES[$key]['tmp_name']))
         {
-            $msg = "Invalid upload for: " + $_FILES[$key]['tmp_name']
-                + "<br>" + $_FILES[$key]['error'];
+            $msg = "Invalid upload for: " . $_FILES[$key]['tmp_name']
+                . "<br>" . $_FILES[$key]['error'];
             return false;
         }
 
         // Snarf extension
         $extension = "";
-        if (preg_match("/\\.([^.]+)$/", $_FILES[$key], $matches)) {
-            $extension = "." + $matches[1];
+        if (preg_match("/\\.([^.]+)$/", $_FILES[$key]['name'], $matches)) {
+            $extension = "." . $matches[1];
         }
 
         // Generate name, if missing
         if (!$value) {
-            $value = $this->name_generator($this->directory,
-                                           $extension,
-                                           $row);
+            $cb = $this->name_generator;
+            $value = $cb($this->directory, $extension, $row);
             if (!$value) {
                 $msg = "File name generation failed.";
                 return false;
@@ -1936,13 +1944,15 @@ class Tableau_FileColumn extends Tableau_Column
     }
     
     function finalize_value(&$value, &$msg, $row) {
-        $key = "edit_{$this->name}_file";
+        $key = "edit_{$this->field_name}_file";
+
+        if (!$value) return true;
 
         // Strip slashes
         $value = preg_replace("/\\//", "_", $value);
-        
+
         // Move file
-        $dest = $this->directory + "/" + $value;
+        $dest = $this->directory . "/" . ((string)$value);
         if (!move_uploaded_file($_FILES[$key]['tmp_name'], $dest)) {
             $msg = "Error moving file.";
             return false;
