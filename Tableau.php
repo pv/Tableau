@@ -79,16 +79,16 @@ class Tableau_Column
         $this->validators[] = $validator;
     }
 
-    function validate_value(&$value, &$msg, &$row) {
+    function validate_value($action, &$value, &$msg, &$row) {
         foreach ($this->validators as $validator) {
-            if (!$validator($value, &$msg)) {
+            if (!$validator($action, $value, &$msg)) {
                 return false;
             }
         }
         return true;
     }
 
-    function finalize_value(&$value, &$msg, &$row) { return true; }
+    function finalize_value($action, &$value, &$msg, &$row) { return true; }
 
     function set_default($value) {
         $this->default = $value;
@@ -262,30 +262,30 @@ class Tableau_Callback
         $this->display_row_callbacks = array();
     }
 
-    function before_change(&$row, &$errors) {
+    function before_change($action, &$row, &$errors) {
         $ok = true;
         foreach ($this->columns as $field_name => $column) {
-            if (!$column->validate_value($row[$field_name], $msg, $row)) {
+            if (!$column->validate_value($action, $row[$field_name], $msg, $row)) {
                 $errors[$field_name][] = "{$column->name}: $msg";
                 $ok = false;
             }
         }
         foreach ($this->before_change_callbacks as $cb) {
-            if (!$cb($row, $msg)) { $errors[null][] = $msg; $ok = false; }
+            if (!$cb($action, $row, $msg)) { $errors[null][] = $msg; $ok = false; }
         }
         return $ok;
     }
 
-    function after_change(&$row, &$errors) {
+    function after_change($action, &$row, &$errors) {
         $ok = true;
         foreach ($this->columns as $field_name => $column) {
-            if (!$column->finalize_value($row[$field_name], $msg, $row)) {
+            if (!$column->finalize_value($action, $row[$field_name], $msg, $row)) {
                 $errors[$field_name][] = "{$column->name}: $msg";
                 $ok = false;
             }
         }
         foreach ($this->after_change_callbacks as $cb) {
-            if (!$cb($row, $msg)) { $errors[null][] = $msg; $ok = false; }
+            if (!$cb($action, $row, $msg)) { $errors[null][] = $msg; $ok = false; }
         }
         return $ok;
     }
@@ -452,8 +452,8 @@ class Tableau_TableEdit
      * If it fails, print the errors, an edit form, and ask the user to fix the
      * errors.
      */
-    function action_validate_change(&$row) {
-        if (!$this->callback->before_change($row, $errors)) {
+    function action_validate_change($action, &$row) {
+        if (!$this->callback->before_change($action, $row, $errors)) {
             $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>\n", $errors);
             $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
@@ -512,7 +512,7 @@ class Tableau_TableEdit
     function action_update() {
         $row = $this->get_input_row();
         $entry_key = $row[$this->conn->primary_key];
-        if (!$this->action_validate_change($row)) return;
+        if (!$this->action_validate_change('update', $row)) return;
 
         // Perform update
         $result = $this->conn->update($row, $entry_key);
@@ -527,7 +527,7 @@ class Tableau_TableEdit
             print $view->get_table_view();
 
             // After callbacks
-            $this->callback->after_change($row, $errors);
+            $this->callback->after_change('update', $row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
             // OK
             print $this->get_ok_box();
@@ -578,7 +578,7 @@ class Tableau_TableEdit
         $row = $this->get_input_row();
         $row[$this->conn->primary_key] = null;
         $entry_key = null;
-        if (!$this->action_validate_change($row)) return;
+        if (!$this->action_validate_change('insert', $row)) return;
 
         // Perform insert
         $result = $this->conn->insert($row);
@@ -597,7 +597,7 @@ class Tableau_TableEdit
             print $view->get_table_view();
 
             // After callbacks
-            $this->callback->after_change($row, $errors);
+            $this->callback->after_change('insert', $row, $errors);
             $this->display_errors(".. but some errors occurred afterwards:", $errors);
 
             // OK
@@ -1946,7 +1946,7 @@ class Tableau_FileColumn extends Tableau_Column
         $this->display = new Tableau_FileDisplay($www_directory);
     }
 
-    function validate_value(&$value, &$msg, $row) {
+    function validate_value($action, &$value, &$msg, $row) {
         $key = "edit_{$this->field_name}_file";
 
         if (!$_FILES[$key]['name']) {
@@ -2004,7 +2004,7 @@ class Tableau_FileColumn extends Tableau_Column
         return Tableau_Column::validate_value($value, $msg, $row);
     }
     
-    function finalize_value(&$value, &$msg, $row) {
+    function finalize_value($action, &$value, &$msg, $row) {
         $key = "edit_{$this->field_name}_file";
 
         if (!$value) return true;
