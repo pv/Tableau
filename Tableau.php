@@ -358,11 +358,13 @@ class Tableau_TableEdit
     var $conn;
     var $columns;
     var $callback;
+    var $commentary;
 
-    function Tableau_TableEdit($conn, &$columns, &$callback) {
+    function Tableau_TableEdit($conn, &$columns, &$callback, $commentary) {
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
+	$this->commentary = $commentary;
     }
 
     /**
@@ -429,6 +431,7 @@ class Tableau_TableEdit
             $output .= "<input type='reset' name='reset' value='Reset'>\n";
             $output .= "</div></form>\n";
         }
+	if ($this->commentary) $output .= "<div>{$this->commentary}</div>";
 
         print $output;
     }
@@ -1092,6 +1095,7 @@ class Tableau
     var $conn;
     var $columns;
     var $callback;
+    var $commentary;
     
     var $default_sort = array();
     var $default_filters = array(array(), null);
@@ -1100,6 +1104,7 @@ class Tableau
         $this->conn = new Tableau_DBTable($connection, $table_name);
         $this->columns = array();
         $this->callback = new Tableau_Callback($columns);
+	$this->commentary = "";
     }
 
     function set_columns() {
@@ -1164,6 +1169,10 @@ class Tableau
 
     function set_default_filters($filters, $filter_or=false) {
         $this->default_filters = array($filters, $filter_or);
+    }
+
+    function set_commentary($commentary) {
+        $this->commentary = $commentary;
     }
 
     function add_callback($place, $cb) {
@@ -1250,7 +1259,7 @@ class Tableau
             break;
         case 'edit':
             $view = new Tableau_TableEdit($this->conn, $this->columns,
-                                             $this->callback);
+                                          $this->callback, $this->commentary);
             print "<div class='editbox'>";
             $view->display();
             print "</div>\n";
