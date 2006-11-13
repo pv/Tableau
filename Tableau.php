@@ -1206,7 +1206,7 @@ class Tableau
         print "<div class='linkbox'>";
         print "<span><a href=\"".$url->getURL(true)."\">View all</a></span>";
         $url->addQueryString('action', 'edit');
-        print "<span><a href=\"".$url->getURL(true)."\">Insert a new row</a></span>";
+        print "<span><a href=\"".$url->getURL(true)."\">Insert new</a></span>";
         print "</div>\n";
 
         // Primary key must always be present and editable
@@ -1361,6 +1361,16 @@ function parse_date($string) {
                  substr($string, 8, 2));
 }
 
+function parse_time($string) {
+    if (preg_match('/^([0-9]+):([0-9]+):([0-9]+)$/', $string, $matches)) {
+        return array($matches[0], $matches[1], $matches[2]);
+    } elseif (preg_match('/^([0-9]+):([0-9]+)$/', $string, $matches)) {
+        return array($matches[0], $matches[1], 0);
+    } else {
+        return array(null, null, null);
+    }
+}
+
 function parse_datetime($string) {
     if (!$string) return array(null, null, null, null, null, null);
     return array_merge(parse_date($string),
@@ -1407,9 +1417,9 @@ function create_select_form($name, $is_map, $values, $options, $selected,
 }
 
 function format_range($fmt, $min, $max, $step=1) {
-    $value = range($min, $max, $step);
-    for ($i = 0; $i < count($value); ++$i) {
-        $value[$i] = sprintf($fmt, $value[$i]);
+    $value = array();
+    for ($i = 0; $i <= $max; $i += $step) {
+        $value[] = sprintf($fmt, $i);
     }
     return $value;
 }
@@ -1522,15 +1532,15 @@ class Tableau_DateTimeEditor extends Tableau_DateEditor
 
         $form .= ", ";
         $form .= create_select_form("{$prefix}_hour",
-                                    false, format_range("%02d", 0, 23),
+                                    false, format_range("%2d", 0, 23),
                                     "", $date[3]);
         $form .= ":";
         $form .= create_select_form("{$prefix}_min",
-                                    false, format_range("%02d", 0, 23),
+                                    false, format_range("%02d", 0, 59),
                                     "", $date[4]);
         $form .= ":";
         $form .= create_select_form("{$prefix}_sec",
-                                    false, format_range("%02d", 0, 23),
+                                    false, format_range("%02d", 0, 59),
                                     "", $date[5]);
 
         $form .= get_jscalendar($prefix, true, $value);
@@ -1550,27 +1560,29 @@ class Tableau_DateTimeEditor extends Tableau_DateEditor
 
 class Tableau_TimeEditor extends Tableau_Editor
 {
+    function Tableau_TimeEditor($min_step=1) {
+        Tableau_Editor::Tableau_Editor();
+	$this->min_step = $min_step;
+    }
+
     function get_form($prefix, $value) {
+        $time = parse_time($value);
+
         $form = "";
         $form .= create_select_form("{$prefix}_hour",
-                                    false, format_range("%02d", 0, 23),
-                                    "", $date[3]);
+                                    false, format_range("%2d", 0, 23),
+                                    "", $time[0]);
         $form .= ":";
         $form .= create_select_form("{$prefix}_min",
-                                    false, format_range("%02d", 0, 23),
-                                    "", $date[4]);
-        $form .= ":";
-        $form .= create_select_form("{$prefix}_sec",
-                                    false, format_range("%02d", 0, 23),
-                                    "", $date[5]);
+                                    false, format_range("%02d", 0, 59, $this->min_step),
+                                    "", $time[1]);
         return $form;
     }
 
     function get_value($prefix) {
         $hour = $_POST["{$prefix}_hour"];
         $min = $_POST["{$prefix}_min"];
-        $sec = $_POST["{$prefix}_sec"];
-	return sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+	return sprintf("%02d:%02d", $hour, $min);
     }
 };
 
@@ -1585,9 +1597,9 @@ class Tableau_DateTimeColumn extends Tableau_DateColumn
 
 class Tableau_TimeColumn extends Tableau_TextColumn
 {
-    function Tableau_DateTimeColumn() {
+    function Tableau_TimeColumn($min_step=1) {
         Tableau_TextColumn::Tableau_TextColumn();
-        $this->editor = new Tableau_TimeEditor();
+        $this->editor = new Tableau_TimeEditor($min_step);
         $this->display = new Tableau_TextDisplay();
     }
 };
