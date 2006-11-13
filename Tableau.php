@@ -411,9 +411,9 @@ class Tableau_TableEdit
             $row = $result->fetch_assoc();
         }
         if ($entry_key) {
-            print "<h2>Edit row</h2>\n";
+            print "<h2>Edit</h2>\n";
         } else {
-            print "<h2>Insert row</h2>\n";
+            print "<h2>Insert</h2>\n";
         }
 
         $output = "";
@@ -471,7 +471,7 @@ class Tableau_TableEdit
      */
     function action_validate_delete(&$row) {
         if (!$this->callback->before_delete($row, $errors)) {
-            $hilight = $this->display_errors("Failed to delete a row:", $errors);
+            $hilight = $this->display_errors("Failed to delete an entry:", $errors);
             $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
             return false;
@@ -535,7 +535,7 @@ class Tableau_TableEdit
             // OK
             print $this->get_ok_box();
         } else {
-            print "<p>Failed to update a row: $result->error</p>\n";
+            print "<p>Failed to update an entry: $result->error</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -567,7 +567,7 @@ class Tableau_TableEdit
             // OK
             print $this->get_ok_box();
         } else {
-            print "<p>Deleting a row failed.</p>\n";
+            print "<p>Deleting an entry failed.</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -592,7 +592,7 @@ class Tableau_TableEdit
                 '*', 'WHERE ' . $this->conn->key_is($result->last_id));
             $row = $result->fetch_assoc();
 
-            print "<p>Inserted a row successfully:</p>\n";
+            print "<p>Inserted an entry successfully:</p>\n";
             $view = new Tableau_TableView($this->conn, $this->columns,
                                              $this->callback, true);
             $view->filter->set_filter($this->conn->primary_key, '=',
@@ -606,7 +606,7 @@ class Tableau_TableEdit
             // OK
             print $this->get_ok_box();
         } else {
-            print "<p>Failed to insert a row: {$result->error}</p>\n";
+            print "<p>Failed to insert an entry: {$result->error}</p>\n";
             $this->action_input($entry_key, $row);
         }
     }
@@ -1006,7 +1006,7 @@ class Tableau_TableView
         if ($last_row != $count or $this->limit_offset != 0) {
             $output .= "<div class='navigaterows'>";
 
-            $output .= "<span class='label'>Showing rows " . ($this->limit_offset + 1) . " &ndash; {$last_row} (of {$count})</span>  ";
+            $output .= "<span class='label'>Showing entries " . ($this->limit_offset + 1) . " &ndash; {$last_row} (of {$count})</span>  ";
 
             $url = new Tableau_URL();
             $newoffset = max($this->limit_offset - $this->limit_maxrows, 0);
