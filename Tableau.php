@@ -1548,11 +1548,46 @@ class Tableau_DateTimeEditor extends Tableau_DateEditor
     }
 };
 
+class Tableau_TimeEditor extends Tableau_Editor
+{
+    function get_form($prefix, $value) {
+        $form = "";
+        $form .= create_select_form("{$prefix}_hour",
+                                    false, format_range("%02d", 0, 23),
+                                    "", $date[3]);
+        $form .= ":";
+        $form .= create_select_form("{$prefix}_min",
+                                    false, format_range("%02d", 0, 23),
+                                    "", $date[4]);
+        $form .= ":";
+        $form .= create_select_form("{$prefix}_sec",
+                                    false, format_range("%02d", 0, 23),
+                                    "", $date[5]);
+        return $form;
+    }
+
+    function get_value($prefix) {
+        $hour = $_POST["{$prefix}_hour"];
+        $min = $_POST["{$prefix}_min"];
+        $sec = $_POST["{$prefix}_sec"];
+	return sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    }
+};
+
 class Tableau_DateTimeColumn extends Tableau_DateColumn
 {
     function Tableau_DateTimeColumn() {
         Tableau_TextColumn::Tableau_TextColumn();
         $this->editor = new Tableau_DateTimeEditor();
+        $this->display = new Tableau_TextDisplay();
+    }
+};
+
+class Tableau_TimeColumn extends Tableau_TextColumn
+{
+    function Tableau_DateTimeColumn() {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_TimeEditor();
         $this->display = new Tableau_TextDisplay();
     }
 };
