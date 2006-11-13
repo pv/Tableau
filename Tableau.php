@@ -1096,6 +1096,7 @@ class Tableau
     var $columns;
     var $callback;
     var $commentary;
+    var $max_rows;
     
     var $default_sort = array();
     var $default_filters = array(array(), null);
@@ -1105,6 +1106,7 @@ class Tableau
         $this->columns = array();
         $this->callback = new Tableau_Callback($columns);
 	$this->commentary = "";
+	$this->max_rows = 1000;
     }
 
     function set_columns() {
@@ -1173,6 +1175,10 @@ class Tableau
 
     function set_commentary($commentary) {
         $this->commentary = $commentary;
+    }
+
+    function set_max_rows($max_rows) {
+        $this->max_rows = $max_rows;
     }
 
     function add_callback($place, $cb) {
@@ -1253,6 +1259,7 @@ class Tableau
                                              $this->default_sort,
                                              $this->default_filters[0],
                                              $this->default_filters[1]);
+	    $view->limit_maxrows = $this->max_rows;
             print "<div class='viewbox'>";
             $view->display();
             print "</div>\n";
