@@ -1106,7 +1106,14 @@ class Tableau
         $columns = fold_list_to_map(func_get_args());
         
         foreach ($columns as $id => $value) {
-            if (!$value->name) $columns[$id]->name = $id;
+	    if (is_array($value)) {
+	        $item = $value[0];
+	        if (count($value) >= 1) $item->name = $value[1];
+		if (count($value) >= 2) $item->comment = $value[2];
+		$columns[$id] = $item;
+	    } else {
+                if (!$value->name) $columns[$id]->name = $id;
+	    }
             $columns[$id]->field_name = $id;
         }
         $this->columns = $columns;
@@ -1373,9 +1380,9 @@ function parse_date($string) {
 
 function parse_time($string) {
     if (preg_match('/^([0-9]+):([0-9]+):([0-9]+)$/', $string, $matches)) {
-        return array($matches[0], $matches[1], $matches[2]);
+        return array($matches[1], $matches[2], $matches[3]);
     } elseif (preg_match('/^([0-9]+):([0-9]+)$/', $string, $matches)) {
-        return array($matches[0], $matches[1], 0);
+        return array($matches[1], $matches[2], 0);
     } else {
         return array(null, null, null);
     }
@@ -1407,6 +1414,7 @@ function format_datetime($ar) {
 
 function create_select_form($name, $is_map, $values, $options, $selected,
                             $add_empty = true) {
+    $selected_seen = false;
     $form = "<select name=\"$name\" id=\"$name\" $options>\n";
     if ($add_empty) {
         $form .= "  <option value=\"\"></option>\n";
@@ -1417,10 +1425,14 @@ function create_select_form($name, $is_map, $values, $options, $selected,
         $form .= "  <option value=\"$key\"";
         if ((string)$selected == (string)$key) {
             $form .= " selected>";
+	    $selected_seen = true;
         } else {
             $form .= ">";
         }
         $form .= "$value</option>\n";
+    }
+    if ($selected != null && !$selected_seen) {
+        $form .= "  <option value=\"$value\" selected>$value</option>\n";
     }
     $form .= "</select>\n";
     return $form;
@@ -1570,9 +1582,11 @@ class Tableau_DateTimeEditor extends Tableau_DateEditor
 
 class Tableau_TimeEditor extends Tableau_Editor
 {
-    function Tableau_TimeEditor($min_step=1) {
+    function Tableau_TimeEditor($min_step=1, $start_hour=0, $end_hour=23) {
         Tableau_Editor::Tableau_Editor();
 	$this->min_step = $min_step;
+	$this->start_hour = $start_hour;
+	$this->end_hour = $end_hour;
     }
 
     function get_form($prefix, $value) {
@@ -1580,7 +1594,7 @@ class Tableau_TimeEditor extends Tableau_Editor
 
         $form = "";
         $form .= create_select_form("{$prefix}_hour",
-                                    false, format_range("%2d", 0, 23),
+                                    false, format_range("%2d", $this->start_hour, $this->end_hour),
                                     "", $time[0]);
         $form .= ":";
         $form .= create_select_form("{$prefix}_min",
@@ -1607,9 +1621,9 @@ class Tableau_DateTimeColumn extends Tableau_DateColumn
 
 class Tableau_TimeColumn extends Tableau_TextColumn
 {
-    function Tableau_TimeColumn($min_step=1) {
+    function Tableau_TimeColumn($min_step=1, $start_hour=0, $end_hour=23) {
         Tableau_TextColumn::Tableau_TextColumn();
-        $this->editor = new Tableau_TimeEditor($min_step);
+        $this->editor = new Tableau_TimeEditor($min_step, $start_hour, $end_hour);
         $this->display = new Tableau_TextDisplay();
     }
 };
