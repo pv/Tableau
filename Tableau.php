@@ -1432,9 +1432,20 @@ function create_select_form($name, $is_map, $values, $options, $selected,
                             $add_empty = true) {
     $selected_seen = false;
     $form = "<select name=\"$name\" id=\"$name\" $options>\n";
-    if ($add_empty) {
+
+    foreach ($values as $key => $value) {
+        if ((string)$selected == (string)$key) {
+	    $selected_seen = true;
+	    break;
+	}
+    }
+
+    if ($selected != null && !$selected_seen) {
+        $form .= "  <option value=\"\" selected></option>\n";
+    } elseif ($add_empty) {
         $form .= "  <option value=\"\"></option>\n";
     }
+    
     foreach ($values as $key => $value) {
         if (!$is_map) $key = $value;
         
@@ -1446,9 +1457,6 @@ function create_select_form($name, $is_map, $values, $options, $selected,
             $form .= ">";
         }
         $form .= "$value</option>\n";
-    }
-    if ($selected != null && !$selected_seen) {
-        $form .= "  <option value=\"$value\" selected>$value</option>\n";
     }
     $form .= "</select>\n";
     return $form;
