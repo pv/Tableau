@@ -1043,8 +1043,11 @@ class Tableau_TableView
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
                 $value = $row[$field_name];
-                $row_str .= do_format_cell($this->callback, $row, $field_name,
-                                          $column->display->get($value));
+		$disp_value = $column->display->get($value);
+		if (strlen($disp_value) > 80) {
+		    $disp_value = substr($disp_value, 0, 80) . "...";
+		}
+                $row_str .= do_format_cell($this->callback, $row, $field_name, $disp_value);
             }
 
             $row_attr = array();
