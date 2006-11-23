@@ -1992,13 +1992,13 @@ class Tableau_FileColumn extends Tableau_Column
         $this->display = new Tableau_FileDisplay($www_directory);
     }
 
-    function validate_value($action, &$value, &$msg, $row) {
+    function validate_value($action, &$value, &$msg, &$row, $old_row) {
         $key = "edit_{$this->field_name}_file";
 
         if (!$_FILES[$key]['name']) {
             // no file given
             $value = null;
-            return Tableau_Column::validate_value($value, $msg, $row);
+            return Tableau_Column::validate_value($value,$msg,$row,$old_row);
         }
 
         if ($_FILES[$key]['size'] <= 0) {
@@ -2047,7 +2047,7 @@ class Tableau_FileColumn extends Tableau_Column
         // Strip slashes
         $value = preg_replace("/\\//", "_", $value);
 
-        return Tableau_Column::validate_value($value, $msg, $row);
+        return Tableau_Column::validate_value($value, $msg, $row, $old_row);
     }
     
     function finalize_value($action, &$value, &$msg, $row) {
