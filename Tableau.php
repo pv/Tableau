@@ -781,7 +781,8 @@ class Tableau_TableFilter
 
             if (!in_array((string)$field, $this->conn->fields)
                 and $field != '*') continue;
-            if (!in_array((string)$type, array('LIKE', '>', '<', '=')))
+            if (!in_array((string)$type, array('LIKE', '>', '<', '=',
+	                                       '!=', 'NOT LIKE')))
                 continue;
 
             $this->filters[] = array($field, $type, $value);
@@ -862,7 +863,9 @@ class Tableau_TableFilter
         $choices = array("LIKE" => "contains",
                          "=" => "is",
                          ">" => "is greater/later than",
-                         "<" => "is smaller/earlier than");
+                         "<" => "is smaller/earlier than",
+			 "!=" => "is not",
+			 "NOT LIKE" => "does not contain");
 
         for ($i = 0; $i < $this->nsearch; ++$i) {
             $output .= "<tr><td>";
@@ -2091,11 +2094,12 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
 {
     var $columns;
     
-    function Tableau_ChangeTrackColumn($columns=null) {
+    function Tableau_ChangeTrackColumn($columns=null, $exclude=null) {
         Tableau_Column::Tableau_Column();
         $this->display = new Tableau_TextDisplay();
         $this->editor = new Tableau_CheckboxEditor();
         $this->columns = $columns;
+	$this->exclude = $exclude;
     }
 
     function validate_value($action, &$value, &$msg, &$row, $old_row) {
@@ -2123,6 +2127,9 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
         if ($this->columns) {
             $ks = array_intersect($ks, $this->columns);
         }
+	if ($this->exclude) {
+	    $ks = array_diff($ks, $this->exclude);
+	}
         $value = join(';', array_unique($ks));
         return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
     }
