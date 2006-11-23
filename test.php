@@ -82,7 +82,9 @@ if ($_GET['table'] == 'staff') {
         // More text
         'last_updated', new Tableau_LastUpdatedColumn(),
         // And an automatically updating "last changed" field.
-        'photo_filename', new Tableau_FileColumn("/home/pauli/public_html/Tableau/testup", "/~pauli/Tableau/testup")
+        'photo_filename', new Tableau_FileColumn("/home/pauli/public_html/Tableau/testup", "/~pauli/Tableau/testup"),
+        // And a change tracking column
+        'changes', new Tableau_ChangeTrackColumn()
         );
 
     // Next, set some pretty display names for the columns
@@ -122,6 +124,7 @@ if ($_GET['table'] == 'staff') {
     function mark_missing($row, $field, &$disp, &$cell_attr) {
         // Note that $field == null indicates the first column,
         // which contains an 'edit row' link
+        if ($field == "changes") return;
         if ($field and !$row[$field]) {
             $disp = "<a href=\"?action=edit&id=".$row['id']."\">(missing)</a>";
             $cell_attr['style'] = 'background-color: red; color: white;';

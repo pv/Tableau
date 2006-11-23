@@ -1998,7 +1998,7 @@ class Tableau_FileColumn extends Tableau_Column
         if (!$_FILES[$key]['name']) {
             // no file given
             $value = null;
-            return Tableau_Column::validate_value($value,$msg,$row,$old_row);
+            return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
         }
 
         if ($_FILES[$key]['size'] <= 0) {
@@ -2047,7 +2047,7 @@ class Tableau_FileColumn extends Tableau_Column
         // Strip slashes
         $value = preg_replace("/\\//", "_", $value);
 
-        return Tableau_Column::validate_value($value, $msg, $row, $old_row);
+        return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
     }
     
     function finalize_value($action, &$value, &$msg, $row) {
@@ -2067,6 +2067,67 @@ class Tableau_FileColumn extends Tableau_Column
         return true;
     }
 };
+
+//
+// --- Change tracking columns ------------------------------------------------
+//
+
+class Tableau_CheckboxEditor extends Tableau_Editor
+{
+    function get_form($prefix, $value) {
+        return "<input name='{$prefix}_clear' type=checkbox>";
+    }
+    
+    function get_value($prefix) {
+        if ($_POST["{$prefix}_clear"]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+};
+
+class Tableau_ChangeTrackColumn extends Tableau_Column
+{
+    var $columns;
+    
+    function Tableau_ChangeTrackColumn($columns=null) {
+        Tableau_Column::Tableau_Column();
+        $this->display = new Tableau_TextDisplay();
+        $this->editor = new Tableau_CheckboxEditor();
+        $this->columns = $columns;
+    }
+
+    function validate_value($action, &$value, &$msg, &$row, $old_row) {
+        if ($value == true) {
+            // Update & clear change list
+            $value = "";
+            return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
+        } elseif ($action == 'insert') {
+            // Insert
+            $ks = array_keys($row);
+        } else {
+            // Update
+            if ($old_row[$this->field_name]) {
+                $ks = split(';', $old_row[$this->field_name]);
+            } else {
+                $ks = array();
+            }
+            foreach($row as $key => $v) {
+                if ($v != $old_row[$key]) {
+                    $ks[] = $key;
+                }
+            }
+        }
+        $ks = array_diff($ks, array($this->field_name));
+        if ($this->columns) {
+            $ks = array_intersect($ks, $this->columns);
+        }
+        $value = join(';', array_unique($ks));
+        return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
+    }
+};
+
 
 
 //---------------------------------------------------------------------------//
