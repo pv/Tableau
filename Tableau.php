@@ -79,7 +79,7 @@ class Tableau_Column
         $this->validators[] = $validator;
     }
 
-    function validate_value($action, &$value, &$msg, &$row) {
+    function validate_value($action, &$value, &$msg, &$row, $old_row) {
         foreach ($this->validators as $validator) {
             if (!$validator($action, $value, &$msg)) {
                 return false;
@@ -262,16 +262,19 @@ class Tableau_Callback
         $this->display_row_callbacks = array();
     }
 
-    function before_change($action, &$row, &$errors) {
+    function before_change($action, &$row, $old_row, &$errors) {
         $ok = true;
         foreach ($this->columns as $field_name => $column) {
-            if (!$column->validate_value($action, $row[$field_name], $msg, $row)) {
+            if (!$column->validate_value($action, $row[$field_name], $msg, $row, $old_row)) {
                 $errors[$field_name][] = "{$column->name}: $msg";
                 $ok = false;
             }
         }
         foreach ($this->before_change_callbacks as $cb) {
-            if (!$cb($action, $row, $msg)) { $errors[null][] = $msg; $ok = false; }
+            if (!$cb($action, $row, $old_row, $msg)) {
+                $errors[null][] = $msg;
+                $ok = false;
+            }
         }
         return $ok;
     }
@@ -455,8 +458,8 @@ class Tableau_TableEdit
      * If it fails, print the errors, an edit form, and ask the user to fix the
      * errors.
      */
-    function action_validate_change($action, &$row) {
-        if (!$this->callback->before_change($action, $row, $errors)) {
+    function action_validate_change($action, &$row, $old_row) {
+        if (!$this->callback->before_change($action, $row, $old_row, $errors)) {
             $hilight = $this->display_errors("Some of the values you input were invalid. <span style='color: #a00;'>Please correct the following and try again:</span>\n", $errors);
             $entry_key = $row[$this->conn->primary_key];
             $this->action_input($entry_key, $row, $hilight);
@@ -515,7 +518,9 @@ class Tableau_TableEdit
     function action_update() {
         $row = $this->get_input_row();
         $entry_key = $row[$this->conn->primary_key];
-        if (!$this->action_validate_change('update', $row)) return;
+        $selection = $this->conn->key_is($entry_key);
+        $old_row = $this->conn->fetch_one_assoc("SELECT * FROM {$this->conn->table_name} WHERE $selection;");
+        if (!$this->action_validate_change('update', $row, $old_row)) return;
 
         // Perform update
         $result = $this->conn->update($row, $entry_key);
@@ -581,7 +586,7 @@ class Tableau_TableEdit
         $row = $this->get_input_row();
         $row[$this->conn->primary_key] = null;
         $entry_key = null;
-        if (!$this->action_validate_change('insert', $row)) return;
+        if (!$this->action_validate_change('insert', $row, null)) return;
 
         // Perform insert
         $result = $this->conn->insert($row);
