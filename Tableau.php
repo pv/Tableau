@@ -1318,7 +1318,7 @@ class Tableau_TextEditor extends Tableau_Editor
 class Tableau_TextDisplay extends Tableau_Display
 {
     function get($value) {
-        return htmlentities($value);
+        return htmlentities((string)$value);
     }
 };
 
@@ -1664,7 +1664,7 @@ class Tableau_IDDisplay extends Tableau_TextDisplay
 {
     function get($value) {
         if ($value) {
-            return "<span style='color: #aaa;'>$value</span>";
+            return "<span style='color: #aaa;'>" . htmlentities($value) . "</span>";
         } else {
             return "<span style='color: #aaa;'>[new]</span>";
         }
