@@ -420,6 +420,7 @@ class Tableau_TableEdit
         }
 
         $output = "";
+	if ($this->commentary) $output .= "<div>{$this->commentary}</div>";
         $output .= "<form enctype='multipart/form-data' method='post'>\n";
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
@@ -434,7 +435,6 @@ class Tableau_TableEdit
             $output .= "<input type='reset' name='reset' value='Reset'>\n";
             $output .= "</div></form>\n";
         }
-	if ($this->commentary) $output .= "<div>{$this->commentary}</div>";
 
         print $output;
     }
@@ -1886,8 +1886,7 @@ class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
         $choices = array();
         if ($key_field != $value_field) {
             while ($row = $result->fetch_assoc()) {
-                $choices[$row[$key_field]] =
-                    $row[$value_field] . " ($row[$key_field])";
+                $choices[$row[$key_field]] = $row[$value_field];
             }
         } else {
             while ($row = $result->fetch_assoc()) {
