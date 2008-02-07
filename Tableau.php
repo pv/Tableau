@@ -693,11 +693,13 @@ class Tableau_TableSort
      */
     function get_sql() {
         $orders = array();
-        foreach ($this->sort as $sort) {
-            $dir = $sort[1] ? 'DESC' : 'ASC';
-            $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') $dir";
-            $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
-        }
+	if ($this->sort) {
+            foreach ($this->sort as $sort) {
+                $dir = $sort[1] ? 'DESC' : 'ASC';
+                $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') $dir";
+                $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
+            }
+	}
         if (count($orders) > 0) {
             return "ORDER BY " . join(", ", $orders);
         } else {
@@ -711,10 +713,13 @@ class Tableau_TableSort
     function get_table_header() {
         $url = new Tableau_URL();
         $i = 1;
-        foreach ($this->sort as $sort) {
-            $url->addQueryString("sort_field_{$i}", $sort[0]);
-            $url->addQueryString("sort_dir_{$i}", $sort[1]);
-            ++$i;
+
+	if ($this->sort) {
+            foreach ($this->sort as $sort) {
+                $url->addQueryString("sort_field_{$i}", $sort[0]);
+                $url->addQueryString("sort_dir_{$i}", $sort[1]);
+                ++$i;
+            }
         }
         
         $output = "";
