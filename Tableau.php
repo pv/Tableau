@@ -1036,7 +1036,9 @@ class Tableau_TableView
             }
                 
             $output .= "</div>";
-        }
+        } else {
+	    $output .= "<div class='navigaterows'>{$count} entries found</div>";
+	}
         
         $output .= "<table>\n<tr><th></th>\n";
         $output .= $this->sort->get_table_header();
