@@ -127,9 +127,9 @@ class Tableau_DBTable
             if ($row->Key == 'PRI') {
                 $this->primary_key = $row->Field;
             }
-	    if ($row->Null) {
-	        $this->has_null[$row->Field] = true;
-	    }
+            if ($row->Null) {
+                $this->has_null[$row->Field] = true;
+            }
             $this->fields[] = $row->Field;
         }
     }
@@ -154,9 +154,9 @@ class Tableau_DBTable
         
         $assign = array();
         foreach ($row as $key => $value) {
-	    if ($value === null and $this->has_null[$key]) {
-	        $assign[] = "$this->table_name.$key = NULL";
-	    } else {
+            if ($value === null and $this->has_null[$key]) {
+                $assign[] = "$this->table_name.$key = NULL";
+            } else {
                 $assign[] = "$this->table_name.$key = '" . $this->escape($value) . "'";
             }
         }
@@ -171,11 +171,11 @@ class Tableau_DBTable
         $values = array();
         foreach ($row as $key => $value) {
             $fields[] = $this->table_name . "." . $key;
-	    if ($value === null and $this->has_null[$key]) {
-	        $values[] = "NULL";
-	    } else {
+            if ($value === null and $this->has_null[$key]) {
+                $values[] = "NULL";
+            } else {
                 $values[] = "'" . $this->escape($value) . "'";;
-	    }
+            }
         }
         $query = "INSERT INTO {$this->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
         return $this->query($query);
@@ -367,7 +367,7 @@ class Tableau_TableEdit
         $this->conn = $conn;
         $this->columns = $columns;
         $this->callback = $callback;
-	$this->commentary = $commentary;
+        $this->commentary = $commentary;
     }
 
     /**
@@ -420,7 +420,7 @@ class Tableau_TableEdit
         }
 
         $output = "";
-	if ($this->commentary) $output .= "<div>{$this->commentary}</div>";
+        if ($this->commentary) $output .= "<div>{$this->commentary}</div>";
         $output .= "<form enctype='multipart/form-data' method='post'>\n";
         $output .= $this->get_edit_form($row, $hilight, $row==null);
         if ($entry_key) {
@@ -693,13 +693,13 @@ class Tableau_TableSort
      */
     function get_sql() {
         $orders = array();
-	if ($this->sort) {
+        if ($this->sort) {
             foreach ($this->sort as $sort) {
                 $dir = $sort[1] ? 'DESC' : 'ASC';
                 $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') $dir";
                 $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
             }
-	}
+        }
         if (count($orders) > 0) {
             return "ORDER BY " . join(", ", $orders);
         } else {
@@ -714,7 +714,7 @@ class Tableau_TableSort
         $url = new Tableau_URL();
         $i = 1;
 
-	if ($this->sort) {
+        if ($this->sort) {
             foreach ($this->sort as $sort) {
                 $url->addQueryString("sort_field_{$i}", $sort[0]);
                 $url->addQueryString("sort_dir_{$i}", $sort[1]);
@@ -787,7 +787,7 @@ class Tableau_TableFilter
             if (!in_array((string)$field, $this->conn->fields)
                 and $field != '*') continue;
             if (!in_array((string)$type, array('LIKE', '>', '<', '=',
-	                                       '!=', 'NOT LIKE')))
+                                               '!=', 'NOT LIKE')))
                 continue;
 
             $this->filters[] = array($field, $type, $value);
@@ -869,8 +869,8 @@ class Tableau_TableFilter
                          "=" => "is",
                          ">" => "is greater/later than",
                          "<" => "is smaller/earlier than",
-			 "!=" => "is not",
-			 "NOT LIKE" => "does not contain");
+                         "!=" => "is not",
+                         "NOT LIKE" => "does not contain");
 
         for ($i = 0; $i < $this->nsearch; ++$i) {
             $output .= "<tr><td>";
@@ -1037,8 +1037,8 @@ class Tableau_TableView
                 
             $output .= "</div>";
         } else {
-	    $output .= "<div class='navigaterows'>{$count} entries found</div>";
-	}
+            $output .= "<div class='navigaterows'>{$count} entries found</div>";
+        }
         
         $output .= "<table>\n<tr><th></th>\n";
         $output .= $this->sort->get_table_header();
@@ -1058,10 +1058,10 @@ class Tableau_TableView
             foreach ($this->columns as $field_name => $column) {
                 if (!$column->visible) continue;
                 $value = $row[$field_name];
-		$disp_value = $column->display->get($value);
-		if (strlen($disp_value) > 80) {
-		    $disp_value = substr($disp_value, 0, 80) . "...";
-		}
+                $disp_value = $column->display->get($value);
+                if (strlen($disp_value) > 80) {
+                    $disp_value = substr($disp_value, 0, 80) . "...";
+                }
                 $row_str .= do_format_cell($this->callback, $row, $field_name, $disp_value);
             }
 
@@ -1087,6 +1087,52 @@ class Tableau_TableView
      */
     function display() {
         print $this->get_table_view();
+    }
+
+    /**
+     * CSV export
+     */
+    function csv_export() {
+        $query = "SELECT * FROM {$this->conn->table_name} " . $this->filter->get_sql() . " " . $this->sort->get_sql() . ";";
+        $result = $this->conn->query($query);
+
+        if ($result->error) {
+            return csv_fmt_row(array("$query: $result->error\n"));
+        }
+        
+        $output = "";
+
+        /* output header */
+        $csvrow = array();
+        foreach ($this->columns as $field_name => $column) {
+            if (!$column->visible) continue;
+            $csvrow[] = $column->name;
+        }
+        $output .= $this->csv_fmt_row($csvrow);
+
+        /* output data */
+        while ($row = $result->fetch_assoc()) {
+            $csvrow = array();
+            foreach ($this->columns as $field_name => $column) {
+                if (!$column->visible) continue;
+                $value = $row[$field_name];
+                //$disp_value = $column->display->get($value);
+                //$csvrow[] = $disp_value;
+                $csvrow[] = $value;
+            }
+            $output .= $this->csv_fmt_row($csvrow);
+        }
+        return $output;
+    }
+
+    function csv_fmt_row($arr) {
+        $s = "";
+        foreach ($arr as $val) {
+            $val = str_replace('"', '""', $val);
+            if ($s) $s .= ",";
+            $s .= "\"$val\"";
+        }
+        return $s . "\n";
     }
 };
 
@@ -1115,6 +1161,8 @@ class Tableau
     var $callback;
     var $commentary;
     var $max_rows;
+    var $initialized;
+    var $predisplay_called;
     
     var $default_sort = array();
     var $default_filters = array(array(), null);
@@ -1123,22 +1171,23 @@ class Tableau
         $this->conn = new Tableau_DBTable($connection, $table_name);
         $this->columns = array();
         $this->callback = new Tableau_Callback($columns);
-	$this->commentary = "";
-	$this->max_rows = 1000;
+        $this->commentary = "";
+        $this->max_rows = 1000;
+        $this->initialized = false;
     }
 
     function set_columns() {
         $columns = fold_list_to_map(func_get_args());
         
         foreach ($columns as $id => $value) {
-	    if (is_array($value)) {
-	        $item = $value[0];
-	        if (count($value) >= 1) $item->name = $value[1];
-		if (count($value) >= 2) $item->comment = $value[2];
-		$columns[$id] = $item;
-	    } else {
+            if (is_array($value)) {
+                $item = $value[0];
+                if (count($value) >= 1) $item->name = $value[1];
+                if (count($value) >= 2) $item->comment = $value[2];
+                $columns[$id] = $item;
+            } else {
                 if (!$value->name) $columns[$id]->name = $id;
-	    }
+            }
             $columns[$id]->field_name = $id;
         }
         $this->columns = $columns;
@@ -1229,7 +1278,10 @@ class Tableau
         $this->columns[$field]->add_validator($cb);
     }
 
-    function display() {
+    function initialize() {
+        if ($this->initialized) return;
+        $this->initialized = true;
+
         // Normalize GPC
         if (get_magic_quotes_gpc()) {
             foreach ($_POST as $key => $value) {
@@ -1248,6 +1300,19 @@ class Tableau
 
         $this->callback->columns = &$this->columns;
 
+        // Primary key must always be present and editable
+        if (!$this->columns[$this->conn->primary_key]) {
+            $this->columns[$this->conn->primary_key]
+                = new Tableau_TextColumn();
+            $this->columns[$this->conn->primary_key]->name
+                = $this->conn->primary_key;
+        }
+        $this->columns[$this->conn->primary_key]->editable = true;
+    }
+
+    function display() {
+        $this->initialize();
+
         // Navigation links
         $url = new Tableau_URL();
         Tableau_TableFilter::cleanup_url($url);
@@ -1257,16 +1322,11 @@ class Tableau
         print "<span><a href=\"".$url->getURL(true)."\">View all</a></span>";
         $url->addQueryString('action', 'edit');
         print "<span><a href=\"".$url->getURL(true)."\">Insert new</a></span>";
-        print "</div>\n";
-
-        // Primary key must always be present and editable
-        if (!$this->columns[$this->conn->primary_key]) {
-            $this->columns[$this->conn->primary_key]
-                = new Tableau_TextColumn();
-            $this->columns[$this->conn->primary_key]->name
-                = $this->conn->primary_key;
+        if ($this->predisplay_called) {
+            $url->addQueryString('action', 'csv');
+            print "<span><a href=\"".$url->getURL(true)."\">CSV export</a></span>";
         }
-        $this->columns[$this->conn->primary_key]->editable = true;
+        print "</div>\n";
 
         // Table view / editor
         switch (trim(strtolower($_GET['action']))) {
@@ -1277,7 +1337,7 @@ class Tableau
                                              $this->default_sort,
                                              $this->default_filters[0],
                                              $this->default_filters[1]);
-	    $view->limit_maxrows = $this->max_rows;
+            $view->limit_maxrows = $this->max_rows;
             print "<div class='viewbox'>";
             $view->display();
             print "</div>\n";
@@ -1289,6 +1349,26 @@ class Tableau
             $view->display();
             print "</div>\n";
             break;
+        }
+    }
+
+    /**
+     * Pre-display hook, for CSV export.
+     */
+    function predisplay() {
+        $this->initialize();
+        $this->predisplay_called = true;
+
+        if (trim(strtolower($_GET['action'])) == 'csv') {
+            $view = new Tableau_TableView($this->conn, $this->columns,
+                                             $this->callback, false,
+                                             $this->default_sort,
+                                             $this->default_filters[0],
+                                             $this->default_filters[1]);
+            header("Content-type: text/csv; charset=iso-8859-1");
+            header("Content-disposition: attachment; filename={$this->conn->table_name}.csv");
+            print $view->csv_export();
+            exit();
         }
     }
 };
@@ -1369,8 +1449,8 @@ class Tableau_NumberEditor extends Tableau_Editor
     function get_value($prefix) {
         $str = $_POST["{$prefix}_text"];
         $str = str_replace(',', '.', $str); // Normalize comma
-	if ($str == '') return null;
-	return $str;
+        if ($str == '') return null;
+        return $str;
     }
 };
 
@@ -1387,9 +1467,9 @@ class Tableau_NumberDisplay extends Tableau_Display
         if ($value != '') {
             $value = str_replace('.', ',', (string)$value);
             return htmlentities($value) . "&nbsp;" . $this->unit;
-	} else {
-	    return '';
-	}
+        } else {
+            return '';
+        }
     }
 };
 
@@ -1453,9 +1533,9 @@ function create_select_form($name, $is_map, $values, $options, $selected,
 
     foreach ($values as $key => $value) {
         if ((string)$selected == (string)$key) {
-	    $selected_seen = true;
-	    break;
-	}
+            $selected_seen = true;
+            break;
+        }
     }
 
     if ($selected != null && !$selected_seen) {
@@ -1470,7 +1550,7 @@ function create_select_form($name, $is_map, $values, $options, $selected,
         $form .= "  <option value=\"$key\"";
         if ((string)$selected == (string)$key) {
             $form .= " selected>";
-	    $selected_seen = true;
+            $selected_seen = true;
         } else {
             $form .= ">";
         }
@@ -1626,9 +1706,9 @@ class Tableau_TimeEditor extends Tableau_Editor
 {
     function Tableau_TimeEditor($min_step=1, $start_hour=0, $end_hour=23) {
         Tableau_Editor::Tableau_Editor();
-	$this->min_step = $min_step;
-	$this->start_hour = $start_hour;
-	$this->end_hour = $end_hour;
+        $this->min_step = $min_step;
+        $this->start_hour = $start_hour;
+        $this->end_hour = $end_hour;
     }
 
     function get_form($prefix, $value) {
@@ -1648,7 +1728,7 @@ class Tableau_TimeEditor extends Tableau_Editor
     function get_value($prefix) {
         $hour = $_POST["{$prefix}_hour"];
         $min = $_POST["{$prefix}_min"];
-	return sprintf("%02d:%02d", $hour, $min);
+        return sprintf("%02d:%02d", $hour, $min);
     }
 };
 
@@ -1802,11 +1882,11 @@ class Tableau_ComboChoiceEditor extends Tableau_ChoiceEditor
                                    $this->is_map, $this->choices,
                                    "onchange='process_choice_{$prefix}(this, document.getElementById(\"{$prefix}_text\"))'", $value);
         if ( $this->is_map and !$this->choices[$value] or
-	    !$this->is_map and !in_array((string)$value, $this->choices)) {
+            !$this->is_map and !in_array((string)$value, $this->choices)) {
             $textval = $value;
-	} else {
-	    $textval = ""; 
-	}
+        } else {
+            $textval = ""; 
+        }
         $form .= "<input type=\"text\" name=\"{$prefix}_text\" id=\"{$prefix}_text\" value=\"$textval\" size=40>";
 
         $form .= <<<__EOF__
@@ -2105,7 +2185,7 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
         $this->display = new Tableau_TextDisplay();
         $this->editor = new Tableau_CheckboxEditor();
         $this->columns = $columns;
-	$this->exclude = $exclude;
+        $this->exclude = $exclude;
     }
 
     function validate_value($action, &$value, &$msg, &$row, $old_row) {
@@ -2133,9 +2213,9 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
         if ($this->columns) {
             $ks = array_intersect($ks, $this->columns);
         }
-	if ($this->exclude) {
-	    $ks = array_diff($ks, $this->exclude);
-	}
+        if ($this->exclude) {
+            $ks = array_diff($ks, $this->exclude);
+        }
         $value = join(';', array_unique($ks));
         return Tableau_Column::validate_value($action,$value,$msg,$row,$old_row);
     }
