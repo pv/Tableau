@@ -426,7 +426,7 @@ class Tableau_TableEdit
         if ($entry_key) {
             $output .= "<div class='buttonbox'>";
             $output .= "<input type='submit' name='submit' value='Update'>\n";
-            $output .= "<input type='submit' name='submit' value='Delete'>\n";
+            $output .= "<input type='submit' name='submit' value='Delete' onclick='return confirm(\"Delete entry?\")'>\n";
             $output .= "<input type='reset' name='Reset'>\n";
             $output .= "</div></form>\n";
         } else {
