@@ -1574,7 +1574,7 @@ function get_jscalendar($prefix, $has_time, $value, $max_year) {
     if (!$has_time) {
         $code = <<<__EOF__
 <input type=hidden name="{$prefix}_jscalendar" id="${prefix}_jscalendar" value="$value">
-<input id="{$prefix}_trigger" type=button value='Select'>
+<input id="{$prefix}_trigger" type=button value='Calendar'>
 <script type="text/javascript">
     function catcalc_{$prefix}(cal) {
         var date = cal.date;
