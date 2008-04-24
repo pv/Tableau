@@ -1310,12 +1310,14 @@ class Tableau
         $this->columns[$this->conn->primary_key]->editable = true;
     }
 
-    function display() {
+    function display($cleanup_url=1) {
         $this->initialize();
 
         // Navigation links
         $url = new Tableau_URL();
-        Tableau_TableFilter::cleanup_url($url);
+	if ($cleanup_url) {
+            Tableau_TableFilter::cleanup_url($url);
+	}
         $url->removeQueryString('id');
         $url->addQueryString('action', 'view');
         print "<div class='linkbox'>";
