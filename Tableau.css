@@ -11,6 +11,7 @@ body {
   width: 100%;
   background-color: #eee;
   border-bottom: thin solid black;
+  border-right: thin solid black;
   line-height: 2.1em;
 }
 
@@ -38,6 +39,10 @@ body {
   padding: .5em;
   background-color: #f4ffff;
   border: thin solid black;
+}
+
+.searchbox form { 
+  background-color: #f4ffff;
 }
 
 .searchbox table td { 
