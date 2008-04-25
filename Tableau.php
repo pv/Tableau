@@ -2180,8 +2180,6 @@ class Tableau_CheckboxEditor extends Tableau_Editor
 
 class Tableau_ChangeTrackColumn extends Tableau_Column
 {
-    var $columns;
-    
     function Tableau_ChangeTrackColumn($columns=null, $exclude=null) {
         Tableau_Column::Tableau_Column();
         $this->display = new Tableau_TextDisplay();
@@ -2223,6 +2221,28 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
     }
 };
 
+/**
+ * Column that always updates the value to a constant, when columns in the row
+ * are edited.
+ */
+class Tableau_ChangeFlagColumn extends Tableau_ChangeTrackColumn
+{
+    function Tableau_ChangeFlagColumn($flag_value="1", $columns=null, $exclude=null) {
+    	Tableau_ChangeTrackColumn::Tableau_ChangeTrackColumn($columns, $exclude);
+        $this->editor = new Tableau_IDEditor();
+        $this->flag_value = $flag_value;
+    }
+
+    function validate_value($action, &$value, &$msg, &$row, $old_row) {
+    	$val = false;
+        $old_row[$this->field_name] = '';
+        $res = Tableau_ChangeTrackColumn::validate_value($action,$val,$msg,$row,$old_row);
+        if ($val) {
+            $value = $this->flag_value;
+        }
+        return $res;
+    }
+};
 
 
 //---------------------------------------------------------------------------//
