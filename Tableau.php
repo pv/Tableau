@@ -1752,6 +1752,48 @@ class Tableau_TimeColumn extends Tableau_TextColumn
     }
 };
 
+class Tableau_YearEditor extends Tableau_DateEditor
+{
+    function Tableau_YearEditor($min_year=null, $max_year=null) {
+    	Tableau_DateEditor::Tableau_DateEditor($min_year, $max_year);
+    }
+
+    function get_form($prefix, $value) {
+        $year = (int)$value;
+	if ($year == 0 && $year != $value) $year = null;
+	
+        $year_range = array_reverse(range($this->min_year, $this->max_year));
+        if ($year != null and ($year < $this->min_year or
+                               $year > $this->max_year)) {
+            $year_range[] = $year;
+        }
+	
+        $form = "";
+        $form .= create_select_form("{$prefix}_year", false, $year_range,
+                                    "", $year);
+        return $form;
+    }
+
+    function get_value($prefix) {
+        $year = $_POST["{$prefix}_year"];
+	if ($year == '') return null;
+        return sprintf("%d", (int)$year);
+    }
+};
+
+class Tableau_YearColumn extends Tableau_TextColumn
+{
+    function Tableau_YearColumn() {
+        Tableau_TextColumn::Tableau_TextColumn();
+        $this->editor = new Tableau_YearEditor();
+        $this->display = new Tableau_TextDisplay();
+    }
+
+    function set_year_range($min_year, $max_year) {
+        $this->editor->set_year_range($min_year, $max_year);
+    }
+};
+
 
 //
 // --- ID columns -----------------------------------------------------------
