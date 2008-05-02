@@ -123,7 +123,7 @@ class Tableau_DBTable
 
     function scan_table_structure() {
         $this->fields = array();
-        $result = $this->query("DESC {$this->table_name};");
+        $result = $this->query("DESC `{$this->table_name}`;");
         while ($row = $result->fetch_object()) {
             if ($row->Key == 'PRI') {
                 $this->primary_key = $row->Field;
@@ -142,11 +142,11 @@ class Tableau_DBTable
     }
 
     function key_is($entry_key) {
-        return "{$this->primary_key} = '".$this->escape($entry_key)."'";
+        return "`{$this->primary_key}` = '".$this->escape($entry_key)."'";
     }
 
     function select($fields='*', $rest='') {
-        $query = "SELECT {$fields} FROM {$this->table_name} $rest;";
+        $query = "SELECT {$fields} FROM `{$this->table_name}` $rest;";
         return $this->query($query);
     }
 
@@ -157,9 +157,9 @@ class Tableau_DBTable
         $assign = array();
         foreach ($row as $key => $value) {
             if ($value === null and $this->has_null[$key]) {
-                $assign[] = "$this->table_name.$key = NULL";
+                $assign[] = "`{$this->table_name}`.`{$key}` = NULL";
             } else {
-                $assign[] = "$this->table_name.$key = '" . $this->escape($value) . "'";
+                $assign[] = "`{$this->table_name}`.`{$key}` = '" . $this->escape($value) . "'";
             }
         }
         $assign[] = $selection;
@@ -172,14 +172,14 @@ class Tableau_DBTable
         $fields = array();
         $values = array();
         foreach ($row as $key => $value) {
-            $fields[] = $this->table_name . "." . $key;
+            $fields[] = "`{$this->table_name}`.`{$key}`";
             if ($value === null and $this->has_null[$key]) {
                 $values[] = "NULL";
             } else {
                 $values[] = "'" . $this->escape($value) . "'";;
             }
         }
-        $query = "INSERT INTO {$this->table_name} (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
+        $query = "INSERT INTO `{$this->table_name}` (" . join(",", $fields) . ") VALUES (" . join(",", $values) . ");";
         return $this->query($query);
     }
 
@@ -1294,6 +1294,13 @@ class Tableau
         array_unshift($this->default_sort, array($field, $dir));
     }
 
+    /**
+     * Set default filters.
+     *
+     * Examples
+     * --------
+     * >>> set_default_filters(array( array("field_name", "=", "foobar") ), false);
+     */
     function set_default_filters($filters, $filter_or=false) {
         $this->default_filters = array($filters, $filter_or);
     }
@@ -2047,7 +2054,8 @@ class Tableau_ComboChoiceColumn extends Tableau_TextColumn
 class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
 {
     function Tableau_ForeignKeyColumn($connection, $table,
-                                      $key_field, $value_field, $query=null, $where=null) {
+                                      $key_field, $value_field=null, $query=null, $where=null) {
+        if ($value_field === null) $value_field = $key_field;
         $choices = $this->get_choices($connection, $table, $key_field,
                                       $value_field, $query, $where);
         Tableau_ChoiceColumn::Tableau_ChoiceColumn(
