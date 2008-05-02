@@ -111,6 +111,7 @@ class Tableau_DBTable
     var $table_name;
     var $primary_key;
     var $fields;
+    var $field_types;
     var $has_null;
     var $nrows;
 
@@ -131,6 +132,7 @@ class Tableau_DBTable
                 $this->has_null[$row->Field] = true;
             }
             $this->fields[] = $row->Field;
+            $this->field_types[] = $row->Type;
         }
     }
     
@@ -1176,21 +1178,65 @@ class Tableau
         $this->initialized = false;
     }
 
-    function set_columns() {
+    /**
+     * Fill in database columns by introspection
+     */
+    function introspect_columns() {
         $columns = fold_list_to_map(func_get_args());
-        
+        $this->columns = array();
+        for ($i = 0; $i < count($this->conn->fields); ++$i) {
+            $fld = $this->conn->fields[$i];
+            $typ = $this->conn->field_types[$i];
+            if (preg_match("/^int/i", $typ) && $fld == $this->conn->primary_key) {
+                $this->columns[$fld] = new Tableau_IDColumn();
+            } else if (preg_match("/^(int|bigint|tinyint|decimal|float)/", $typ)) {
+                $this->columns[$fld] = new Tableau_NumberColumn();
+            } else if (preg_match("/^(datetime|text|tinytext)/i", $typ) && ($fld == "timestamp" || $fld == "last_updated")) {
+                $this->columns[$fld] = new Tableau_LastUpdatedColumn();
+            } else if (preg_match("/^(text|tinytext|bigtext|varchar)/i", $typ)) {
+                $this->columns[$fld] = new Tableau_TextColumn();
+            } else if ($typ == "datetime") {
+                $this->columns[$fld] = new Tableau_DateTimeColumn();
+            } else if ($typ == "date") {
+                $this->columns[$fld] = new Tableau_DateColumn();
+            } else if ($typ == "time") {
+                $this->columns[$fld] = new Tableau_TimeColumn();
+            } else {
+                # unknown; skip ...
+                continue;
+            }
+
+            # format name
+            $n = trim($this->columns[$fld]->name);
+            $n = str_replace("_", " ", $n);
+            $n = strtoupper(substr($n, 0, 1)) . strtolower(substr($n, 1));
+            $this->columns[$fld]->name = $n;
+
+            # fill rest
+            $this->columns[$fld]->field_name = $fld;
+        }
+        $this->update_columns($columns);
+    }
+
+    function update_columns(&$columns) {
         foreach ($columns as $id => $value) {
             if (is_array($value)) {
                 $item = $value[0];
                 if (count($value) >= 1) $item->name = $value[1];
                 if (count($value) >= 2) $item->comment = $value[2];
-                $columns[$id] = $item;
+                $this->columns[$id] = $item;
             } else {
-                if (!$value->name) $columns[$id]->name = $id;
+                $this->columns[$id] = $value;
+                if (!$value->name) $this->columns[$id]->name = $id;
             }
-            $columns[$id]->field_name = $id;
+            $this->columns[$id]->field_name = $id;
         }
-        $this->columns = $columns;
+    }
+
+    function set_columns() {
+        $columns = fold_list_to_map(func_get_args());
+        $this->columns = array();
+        $this->update_columns($columns);
     }
 
     function set_editable() {
