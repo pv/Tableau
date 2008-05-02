@@ -1239,6 +1239,18 @@ class Tableau
         $this->update_columns($columns);
     }
 
+    function remove_columns($names) {
+        foreach ($names as $name) {
+            unset($this->columns[$name]);
+        }
+    }
+
+    function include_only_columns($names) {
+        $old_names = array_keys($this->columns);
+        $prune_names = array_diff($old_names, $names);
+        $this->remove_columns($prune_names);
+    }
+
     function set_editable() {
         $status = fold_list_to_map(func_get_args());
         foreach ($status as $key => $value) {
@@ -1361,9 +1373,9 @@ class Tableau
 
         // Navigation links
         $url = new Tableau_URL();
-	if ($cleanup_url) {
+        if ($cleanup_url) {
             Tableau_TableFilter::cleanup_url($url);
-	}
+        }
         $url->removeQueryString('id');
         $url->addQueryString('action', 'view');
         print "<div class='linkbox'>";
@@ -1801,19 +1813,19 @@ class Tableau_TimeColumn extends Tableau_TextColumn
 class Tableau_YearEditor extends Tableau_DateEditor
 {
     function Tableau_YearEditor($min_year=null, $max_year=null) {
-    	Tableau_DateEditor::Tableau_DateEditor($min_year, $max_year);
+        Tableau_DateEditor::Tableau_DateEditor($min_year, $max_year);
     }
 
     function get_form($prefix, $value) {
         $year = (int)$value;
-	if ($year == 0 && $year != $value) $year = null;
-	
+        if ($year == 0 && $year != $value) $year = null;
+        
         $year_range = array_reverse(range($this->min_year, $this->max_year));
         if ($year != null and ($year < $this->min_year or
                                $year > $this->max_year)) {
             $year_range[] = $year;
         }
-	
+        
         $form = "";
         $form .= create_select_form("{$prefix}_year", false, $year_range,
                                     "", $year);
@@ -1822,7 +1834,7 @@ class Tableau_YearEditor extends Tableau_DateEditor
 
     function get_value($prefix) {
         $year = $_POST["{$prefix}_year"];
-	if ($year == '') return null;
+        if ($year == '') return null;
         return sprintf("%d", (int)$year);
     }
 };
@@ -2035,21 +2047,26 @@ class Tableau_ComboChoiceColumn extends Tableau_TextColumn
 class Tableau_ForeignKeyColumn extends Tableau_ChoiceColumn
 {
     function Tableau_ForeignKeyColumn($connection, $table,
-                                      $key_field, $value_field, $query='') {
+                                      $key_field, $value_field, $query=null, $where=null) {
         $choices = $this->get_choices($connection, $table, $key_field,
-                                      $value_field, $query);
+                                      $value_field, $query, $where);
         Tableau_ChoiceColumn::Tableau_ChoiceColumn(
             $choices, $key_field != $value_field);
     }
 
     /* @static */
     function get_choices($connection, $table, $key_field, $value_field,
-                         $query='') {
+                         $query=null, $where=null) {
         $db = new Tableau_DBTable($connection, $table);
 
         if (!$query) {
+            if (!$where) {
+                $where = '';
+            } else {
+                $where = "WHERE {$where}";
+            }
             $query = "SELECT " . $table . "." . $key_field . ", "
-                . $table . "." . $value_field . " FROM {$table};";
+                . $table . "." . $value_field . " FROM {$table} {$where};";
         }
 
         $result = $db->query($query);
@@ -2316,13 +2333,13 @@ class Tableau_ChangeTrackColumn extends Tableau_Column
 class Tableau_ChangeFlagColumn extends Tableau_ChangeTrackColumn
 {
     function Tableau_ChangeFlagColumn($flag_value="1", $columns=null, $exclude=null) {
-    	Tableau_ChangeTrackColumn::Tableau_ChangeTrackColumn($columns, $exclude);
+        Tableau_ChangeTrackColumn::Tableau_ChangeTrackColumn($columns, $exclude);
         $this->editor = new Tableau_IDEditor();
         $this->flag_value = $flag_value;
     }
 
     function validate_value($action, &$value, &$msg, &$row, $old_row) {
-    	$val = false;
+        $val = false;
         $old_row[$this->field_name] = '';
         $res = Tableau_ChangeTrackColumn::validate_value($action,$val,$msg,$row,$old_row);
         if ($val) {
