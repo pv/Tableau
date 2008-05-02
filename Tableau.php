@@ -1207,7 +1207,7 @@ class Tableau
             }
 
             # format name
-            $n = trim($this->columns[$fld]->name);
+            $n = trim($fld);
             $n = str_replace("_", " ", $n);
             $n = strtoupper(substr($n, 0, 1)) . strtolower(substr($n, 1));
             $this->columns[$fld]->name = $n;
