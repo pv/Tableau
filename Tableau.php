@@ -698,7 +698,7 @@ class Tableau_TableSort
         if ($this->sort) {
             foreach ($this->sort as $sort) {
                 $dir = $sort[1] ? 'DESC' : 'ASC';
-                $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') $dir";
+                $orders[] = "FIELD(" . $this->conn->table_name . "." . $sort[0] . ", NULL, '') ASC";
                 $orders[] = $this->conn->table_name . "." . $sort[0] . " $dir";
             }
         }
