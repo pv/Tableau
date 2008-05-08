@@ -964,6 +964,8 @@ class Tableau_TableView
     var $limit_offset;
     var $limit_maxrows;
 
+    var $max_row_length;
+
     function Tableau_TableView($conn, &$columns, &$callback, $simple=false,
                                $default_sort=null,
                                $default_filters=null,
@@ -980,6 +982,7 @@ class Tableau_TableView
 
         $this->limit_maxrows = 1000;
         $this->limit_offset = 0;
+	$this->max_col_length = 80;
 
         /* Parse offset */
         if ($_GET['offset']) {
@@ -1061,8 +1064,8 @@ class Tableau_TableView
                 if (!$column->visible) continue;
                 $value = $row[$field_name];
                 $disp_value = $column->display->get($value);
-                if (strlen($disp_value) > 80) {
-                    $disp_value = substr($disp_value, 0, 80) . "...";
+                if (strlen($disp_value) > $this->max_col_length) {
+                    $disp_value = substr($disp_value, 0, $this->max_col_length) . "...";
                 }
                 $row_str .= do_format_cell($this->callback, $row, $field_name, $disp_value);
             }
@@ -1168,6 +1171,8 @@ class Tableau
     
     var $default_sort = array();
     var $default_filters = array(array(), null);
+
+    var $max_col_length = 80;
     
     function Tableau($connection, $table_name) {
         $this->conn = new Tableau_DBTable($connection, $table_name);
@@ -1313,6 +1318,10 @@ class Tableau
         $this->max_rows = $max_rows;
     }
 
+    function set_max_col_length($max_length) {
+    	$this->max_col_length = $max_length;
+    }
+
     function add_callback($place, $cb) {
         switch ($place) {
         case 'before_change':
@@ -1405,6 +1414,7 @@ class Tableau
                                              $this->default_filters[0],
                                              $this->default_filters[1]);
             $view->limit_maxrows = $this->max_rows;
+	    $view->max_col_length = $this->max_col_length;
             print "<div class='viewbox'>";
             $view->display();
             print "</div>\n";
